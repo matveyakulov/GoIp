@@ -26,8 +26,7 @@ public class Udp {
                 String receivedData = new String(receivingPacket.getData()).trim();
                 System.out.println(receivedData);
                 if (receivedData.startsWith("req:")) {
-                    int indexGoip = receivedData.indexOf("goip0");
-                    String receivePort = receivedData.substring(indexGoip + 5, indexGoip + 6);
+                    String receivePort = getGoipId(receivedData);
                     String str = "reg:" + receivedData.substring(receivedData.indexOf(":") + 1, receivedData.indexOf(";")) + ";status:0;";
                     System.out.println(str);
                     byte[] sendingDataBuffer1 = str.getBytes();
@@ -40,8 +39,7 @@ public class Udp {
                 }
                 if (receivedData.startsWith("RECEIVE:")) {
                     BufferedWriter writer = new BufferedWriter(new FileWriter("goip.txt", true));
-                    int indexGoip = receivedData.indexOf("goip0");
-                    String receivePort = receivedData.substring(indexGoip + 5, indexGoip + 6);
+                    String receivePort = getGoipId(receivedData);
                     int indexEnd = receivedData.indexOf(":", receivedData.indexOf("msg:") + 6);
                     if (indexEnd == -1) {
                         indexEnd = receivedData.length();
@@ -61,8 +59,7 @@ public class Udp {
                 if (receivedData.startsWith("STATE:") && receivedData.contains("gsm_remain_state:INCOMING")) {
                     int index = receivedData.indexOf("INCOMING");
                     String phone = receivedData.substring(index + 9, index + 21);
-                    int indexGoip = receivedData.indexOf("goip0");
-                    String receivePort = receivedData.substring(indexGoip + 5, indexGoip + 6);
+                    String receivePort = getGoipId(receivedData);
                     BufferedWriter writer = new BufferedWriter(new FileWriter("goip.txt", true));
                     writer.append(String.format("\nЗвонок с номера: %s на %s линию\n", phone, receivePort));
                     System.out.println(receivedData);
@@ -90,5 +87,10 @@ public class Udp {
         } catch (Exception e) {
             return PORT;
         }
+    }
+
+    private static String getGoipId(String receivedData){
+        int indexGoip = receivedData.indexOf("goip0");
+        return receivedData.substring(indexGoip + 5, indexGoip + 6);
     }
 }

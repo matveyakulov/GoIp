@@ -2,11 +2,10 @@ package org.keepcode.swing;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.Set;
 
-public class ComboBoxLines extends JComboBox<String> {
+public class ComboBoxLines<T> extends JComboBox<T> {
 
-    public ComboBoxLines(String[] items) {
+    public ComboBoxLines(T[] items) {
         super(items);
         setMaximumSize(new Dimension(100, 50));
     }
