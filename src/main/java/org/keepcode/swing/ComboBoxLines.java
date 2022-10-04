@@ -2,6 +2,7 @@ package org.keepcode.swing;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Set;
 
 public class ComboBoxLines extends JComboBox<String> {
 

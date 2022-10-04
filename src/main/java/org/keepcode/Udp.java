@@ -18,16 +18,7 @@ public class Udp {
         try {
             DatagramSocket clientSocket = new DatagramSocket(port);
             InetAddress IPAddress = InetAddress.getByName(host);
-
-            byte[] sendingDataBuffer2 = new byte[2048];
-
             while (true) {
-                DatagramPacket sendingPacket3 = new DatagramPacket(sendingDataBuffer2, sendingDataBuffer2.length, IPAddress, port);
-                try {
-                    clientSocket.send(sendingPacket3);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
                 byte[] receivingDataBuffer = new byte[2048];
                 DatagramPacket receivingPacket = new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
                 clientSocket.receive(receivingPacket);
