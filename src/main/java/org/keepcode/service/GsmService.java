@@ -109,28 +109,21 @@ public class GsmService {
   }
 
   public static void listen() {
-    InetAddress inetAddress;
-    try {
-      inetAddress = InetAddress.getByName(HOST);
-    } catch (UnknownHostException e) {
-      throw new RuntimeException(e);
-    }
     try (DatagramSocket clientSocket = new DatagramSocket(RECEIVE_PORT)) {
       while (true) {
         byte[] receivingDataBuffer = new byte[2048];
         DatagramPacket receivingPacket = new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
         clientSocket.receive(receivingPacket);
         String receivedData = new String(receivingPacket.getData()).trim();
-        System.out.println(receivedData);
         String endSymbol = ";";
         String lineId = getFromTo("id:", endSymbol, receivedData);
         int receivePort = Integer.parseInt(getLineNum(lineId));
         if (receivedData.startsWith("req:")) {
-          handleKeepAlive(endSymbol, receivedData, inetAddress);
+          handleKeepAlive(endSymbol, receivedData);
         } else if (receivedData.startsWith("RECEIVE:")) {
-          handleReceiveMsg(receivedData, receivePort, inetAddress);
+          handleReceiveMsg(receivedData, receivePort);
         } else if (receivedData.startsWith("STATE:")) {
-          handleReceiveCall(receivedData, receivePort, inetAddress);
+          handleReceiveCall(receivedData, receivePort);
         }
       }
     } catch (Exception e) {
@@ -138,52 +131,41 @@ public class GsmService {
     }
   }
 
-  private static void handleReceiveCall(String receivedData, int receivePort, InetAddress inetAddress) {
-    try (DatagramSocket datagramSocket = new DatagramSocket()) {
-      String phone = getNumber(receivedData);
-      writeToFile(String.format("\nЗвонок с номера: %s на %s линию\n", phone, receivePort));
-      String str = String.format("STATE %s OK\n", parseSendid(receivedData));
-      byte[] sendingDataBuffer = str.getBytes();
-      DatagramPacket sendingPacket = new DatagramPacket(sendingDataBuffer, sendingDataBuffer.length,
-        inetAddress, getPort(receivePort));
-      datagramSocket.send(sendingPacket);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  private static void handleReceiveCall(String receivedData, int receivePort) {
+    String phone = getNumber(receivedData);
+    writeToFile(String.format("\nЗвонок с номера: %s на %s линию\n", phone, receivePort));
+    String str = String.format("STATE %s OK\n", parseSendid(receivedData));
+    sendAnswer(str, receivePort);
+  }
+  private static void handleReceiveMsg(String receivedData, int receivePort) {
+    String msg = getAfterWord("msg:", receivedData);
+    writeToFile(String.format("\nСмс '%s' пришло на %d линию\n", msg, receivePort));
+    String str = String.format("RECEIVE %s OK\n", parseSendid(receivedData));
+    sendAnswer(str, receivePort);
   }
 
-  private static void handleReceiveMsg(String receivedData, int receivePort, InetAddress inetAddress) {
-    try (DatagramSocket datagramSocket = new DatagramSocket()) {
-      String msg = getAfterWord("msg:", receivedData);
-      writeToFile(String.format("\nСмс '%s' пришло на %d линию\n", msg, receivePort));
-      String str = String.format("RECEIVE %s OK\n", parseSendid(receivedData));
-      byte[] sendingDataBuffer1 = str.getBytes();
-      DatagramPacket sendingPacket2 = new DatagramPacket(sendingDataBuffer1, sendingDataBuffer1.length,
-        inetAddress, getPort(receivePort));
-      datagramSocket.send(sendingPacket2);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+  private static void handleKeepAlive(String endSymbol, String receivedData) {
+    String lineId = getFromTo("id:", endSymbol, receivedData);
+    int lineNum = Integer.parseInt(getLineNum(lineId));
+    String password = getFromTo("pass:", endSymbol, receivedData);
+    String status = getFromTo("gsm_status:", endSymbol, receivedData);
+    lines.put(lineNum, new GsmLine(lineId, password, status));
+    int ansStatus = 0;
+    if (lines.get(lineNum) != null && !lines.get(lineNum).getPassword().equals(password)) {
+      ansStatus = -1;
     }
+    String answer = String.format("reg:%s;status:%d;", parseSendid(receivedData), ansStatus);
+    sendAnswer(answer, lineNum);
   }
 
-  private static void handleKeepAlive(String endSymbol, String receivedData, InetAddress inetAddress) {
+  private static void sendAnswer(String msg, int lineNum){
+    byte[] sendingDataBuffer = msg.getBytes();
     try (DatagramSocket datagramSocket = new DatagramSocket()) {
-      String lineId = getFromTo("id:", endSymbol, receivedData);
-      int lineNum = Integer.parseInt(getLineNum(lineId));
-      String password = getFromTo("pass:", endSymbol, receivedData);
-      String status = getFromTo("gsm_status:", endSymbol, receivedData);
-      lines.put(lineNum, new GsmLine(lineId, password, status));
-      int ansStatus = 0;
-      if (lines.get(lineNum) != null && !lines.get(lineNum).getPassword().equals(password)) {
-        ansStatus = -1;
-      }
-      String answer = String.format("reg:%s;status:%d;", parseSendid(receivedData), ansStatus);
-      byte[] sendingDataBuffer = answer.getBytes();
       DatagramPacket sendingPacket = new DatagramPacket(sendingDataBuffer, sendingDataBuffer.length,
-        inetAddress, getPort(lineNum));
+        InetAddress.getByName(HOST), getPort(lineNum));
       datagramSocket.send(sendingPacket);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    } catch (Exception e){
+
     }
   }
 
