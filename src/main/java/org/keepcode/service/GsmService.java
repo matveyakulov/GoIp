@@ -1,152 +1,198 @@
 package org.keepcode.service;
 
+import org.keepcode.domain.GsmLine;
+import org.keepcode.util.PropUtil;
+
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class GsmService {
 
-  private static final String HOST = "192.168.2.3";
-  private static int PORT = 10992;
-  private static final String password = "1234";
+  private static final String HOST;
+  private static final int RECEIVE_PORT;
+  private static final int SEND_PORT;
 
-  private static final ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+  private static final Map<Integer, GsmLine> lines;
 
-  public static String reboot() {
-    Future<String> future = executor.submit(() -> {
-      try (DatagramSocket clientSocket = new DatagramSocket()) {
-        String command = String.format("svr_reboot_dev %s %s", getSendid(), password);
-        clientSocket.send(getSendingPacket(command));
-        DatagramPacket receivingPacket = getReceivingPacket();
-        clientSocket.receive(receivingPacket);
-        String answer = new String(receivingPacket.getData()).trim();
-        clientSocket.close();
-        return getLastWorld(answer);
-      } catch (Exception e) {
-        return "ERROR";
-      }
-    });
-    try {
-      return future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+  private static final String fileName = "goip.txt";
+
+  static {
+    HOST = PropUtil.getHost();
+    RECEIVE_PORT = PropUtil.getReceivePort();
+    SEND_PORT = PropUtil.getDefaultSendPort();
+    lines = new HashMap<>();
+  }
+
+  public static String reboot(int line, String password) {
+    try (DatagramSocket clientSocket = new DatagramSocket()) {
+      String sendid = getSendid();
+      String command = String.format("svr_reboot_dev %s %s", sendid, password);
+      clientSocket.send(getSendingPacket(command, getPort(line)));
+      DatagramPacket receivingPacket = getReceivingPacket();
+      clientSocket.receive(receivingPacket);
+      String answer = new String(receivingPacket.getData()).trim();
+      clientSocket.close();
+      return getAfterWord(sendid, answer);
+    } catch (Exception e) {
+      return "ERROR";
     }
   }
 
-  public static String numberInfo(Integer line) {
-    Future<String> future = executor.submit(() -> {
-      try (DatagramSocket clientSocket = new DatagramSocket()) {
-        String command = String.format("get_gsm_num %s %s", getSendid(), password);
-        clientSocket.send(getSendingPacket(command, getPort(line)));
-        DatagramPacket receivingPacket = getReceivingPacket();
-        clientSocket.receive(receivingPacket);
-        String answer = new String(receivingPacket.getData()).trim();
-        clientSocket.close();
-        return getLastWorld(answer);
-      } catch (Exception e) {
-        return "Error";
-      }
-    });
-    try {
-      return future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+  public static String numberInfo(int line, String password) {
+    try (DatagramSocket clientSocket = new DatagramSocket()) {
+      String sendid = getSendid();
+      String command = String.format("get_gsm_num %s %s", sendid, password);
+      clientSocket.send(getSendingPacket(command, getPort(line)));
+      DatagramPacket receivingPacket = getReceivingPacket();
+      clientSocket.receive(receivingPacket);
+      String answer = new String(receivingPacket.getData()).trim();
+      clientSocket.close();
+      return getNumber(answer);
+    } catch (Exception e) {
+      return "Error";
     }
   }
 
-  public static String lineReboot(int line) {
-    Future<String> future = executor.submit(() -> {
-      try (DatagramSocket clientSocket = new DatagramSocket()) {
-        String command = String.format("svr_reboot_module %s %s", getSendid(), password);
-        clientSocket.send(getSendingPacket(command, getPort(line)));
-        DatagramPacket receivingPacket = getReceivingPacket();
-        clientSocket.receive(receivingPacket);
-        String answer = new String(receivingPacket.getData()).trim();
-        clientSocket.close();
-        return getLastWorld(answer);
-      } catch (Exception e) {
-        return "ERROR";
-      }
-    });
-    try {
-      return future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+  public static String lineReboot(int line, String password) {
+    try (DatagramSocket clientSocket = new DatagramSocket()) {
+      String sendid = getSendid();
+      String command = String.format("svr_reboot_module %s %s", sendid, password);
+      clientSocket.send(getSendingPacket(command, getPort(line)));
+      DatagramPacket receivingPacket = getReceivingPacket();
+      clientSocket.receive(receivingPacket);
+      String answer = new String(receivingPacket.getData()).trim();
+      clientSocket.close();
+      return getAfterWord(sendid, answer);
+    } catch (Exception e) {
+      return "ERROR";
     }
   }
 
-  public static String sendUssd(Integer line, String ussd) {
-    Future<String> future = executor.submit(() -> {
-      try (DatagramSocket clientSocket = new DatagramSocket()) {
-        String command = String.format("USSD %s %s %s", getSendid(), password, ussd);
-        clientSocket.send(getSendingPacket(command, getPort(line)));
+  public static String sendUssd(int line, String ussd, String password) {
+    try (DatagramSocket clientSocket = new DatagramSocket()) {
+      String sendid = getSendid();
+      String command = String.format("USSD %s %s %s", sendid, password, ussd);
+      clientSocket.send(getSendingPacket(command, getPort(line)));
 
-        DatagramPacket receivingPacket = getReceivingPacket();
-        clientSocket.receive(receivingPacket);
-        clientSocket.close();
-        String receivedData = new String(receivingPacket.getData()).trim();
-        return getLastWorld(receivedData);
-      } catch (Exception e) {
-        return "ERROR";
-      }
-    });
-    try {
-      return future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+      DatagramPacket receivingPacket = getReceivingPacket();
+      clientSocket.receive(receivingPacket);
+      clientSocket.close();
+      String receivedData = new String(receivingPacket.getData()).trim();
+      return getAfterWord(sendid, receivedData);
+    } catch (Exception e) {
+      return "ERROR";
     }
   }
 
-  public static String setGsmNum(String num, Integer line){
-    Future<String> future = executor.submit(() -> {
-      try (DatagramSocket clientSocket = new DatagramSocket()) {
-        String command = String.format("set_gsm_num %s %s %s", getSendid(), num, password);
-        clientSocket.send(getSendingPacket(command, getPort(line)));
+  public static String setGsmNum(String num, int line, String password) {
+    try (DatagramSocket clientSocket = new DatagramSocket()) {
+      String command = String.format("set_gsm_num %s %s %s", getSendid(), num, password);
+      clientSocket.send(getSendingPacket(command, getPort(line)));
 
-        DatagramPacket receivingPacket = getReceivingPacket();
-        clientSocket.receive(receivingPacket);
-        String answer = new String(receivingPacket.getData()).trim();
-        clientSocket.close();
-        return getLastWorld(answer);
-      } catch (Exception e) {
-        return "ERROR";
-      }
-    });
-    try {
-      return future.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+      DatagramPacket receivingPacket = getReceivingPacket();
+      clientSocket.receive(receivingPacket);
+      String answer = new String(receivingPacket.getData()).trim();
+      clientSocket.close();
+      return getAfterWord(num, answer);
+    } catch (Exception e) {
+      return "ERROR";
     }
   }
 
-  public static Map<String, String> getLinesStatus(Integer port) {
-    Map<String, String> lines = new HashMap<>();
-    long start = System.currentTimeMillis();
-    long end = System.currentTimeMillis();
-    try (DatagramSocket clientSocket = new DatagramSocket(port)) {
-      while ((end - start) < 35 * 1000) {
+  public static void listen() {
+    InetAddress inetAddress;
+    try {
+      inetAddress = InetAddress.getByName(HOST);
+    } catch (UnknownHostException e) {
+      throw new RuntimeException(e);
+    }
+    try (DatagramSocket clientSocket = new DatagramSocket(RECEIVE_PORT)) {
+      while (true) {
         byte[] receivingDataBuffer = new byte[2048];
         DatagramPacket receivingPacket = new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
         clientSocket.receive(receivingPacket);
         String receivedData = new String(receivingPacket.getData()).trim();
-        String goipId = getGoipId(receivedData);
-        int indexStatus = receivedData.indexOf("gsm_status");
-        String status = receivedData.substring(indexStatus + 11, receivedData.indexOf(";", indexStatus));
-        lines.put(goipId, status);
-        end = System.currentTimeMillis();
+        System.out.println(receivedData);
+        String endSymbol = ";";
+        String lineId = getFromTo("id:", endSymbol, receivedData);
+        int receivePort = Integer.parseInt(getLineNum(lineId));
+        if (receivedData.startsWith("req:")) {
+          handleKeepAlive(endSymbol, receivedData, inetAddress);
+        } else if (receivedData.startsWith("RECEIVE:")) {
+          handleReceiveMsg(receivedData, receivePort, inetAddress);
+        } else if (receivedData.startsWith("STATE:")) {
+          handleReceiveCall(receivedData, receivePort, inetAddress);
+        }
       }
-      return lines;
     } catch (Exception e) {
-      return new HashMap<>();
+      e.printStackTrace();
+    }
+  }
+
+  private static void handleReceiveCall(String receivedData, int receivePort, InetAddress inetAddress) {
+    try (DatagramSocket datagramSocket = new DatagramSocket()) {
+      String phone = getNumber(receivedData);
+      writeToFile(String.format("\nЗвонок с номера: %s на %s линию\n", phone, receivePort));
+      String str = String.format("STATE %s OK\n", parseSendid(receivedData));
+      byte[] sendingDataBuffer = str.getBytes();
+      DatagramPacket sendingPacket = new DatagramPacket(sendingDataBuffer, sendingDataBuffer.length,
+        inetAddress, getPort(receivePort));
+      datagramSocket.send(sendingPacket);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static void handleReceiveMsg(String receivedData, int receivePort, InetAddress inetAddress) {
+    try (DatagramSocket datagramSocket = new DatagramSocket()) {
+      String msg = getAfterWord("msg:", receivedData);
+      writeToFile(String.format("\nСмс '%s' пришло на %d линию\n", msg, receivePort));
+      String str = String.format("RECEIVE %s OK\n", parseSendid(receivedData));
+      byte[] sendingDataBuffer1 = str.getBytes();
+      DatagramPacket sendingPacket2 = new DatagramPacket(sendingDataBuffer1, sendingDataBuffer1.length,
+        inetAddress, getPort(receivePort));
+      datagramSocket.send(sendingPacket2);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static void handleKeepAlive(String endSymbol, String receivedData, InetAddress inetAddress) {
+    try (DatagramSocket datagramSocket = new DatagramSocket()) {
+      String lineId = getFromTo("id:", endSymbol, receivedData);
+      int lineNum = Integer.parseInt(getLineNum(lineId));
+      String password = getFromTo("pass:", endSymbol, receivedData);
+      String status = getFromTo("gsm_status:", endSymbol, receivedData);
+      lines.put(lineNum, new GsmLine(lineId, password, status));
+      int ansStatus = 0;
+      if (lines.get(lineNum) != null && !lines.get(lineNum).getPassword().equals(password)) {
+        ansStatus = -1;
+      }
+      String answer = String.format("reg:%s;status:%d;", parseSendid(receivedData), ansStatus);
+      byte[] sendingDataBuffer = answer.getBytes();
+      DatagramPacket sendingPacket = new DatagramPacket(sendingDataBuffer, sendingDataBuffer.length,
+        inetAddress, getPort(lineNum));
+      datagramSocket.send(sendingPacket);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static void writeToFile(String msg) {
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true));) {
+      writer.append(msg);
+      writer.flush();
+    } catch (Exception e) {
+      e.printStackTrace();
     }
   }
 
@@ -156,28 +202,21 @@ public class GsmService {
     return new DatagramPacket(commandBytes, commandBytes.length, IPAddress, port);
   }
 
-  private static DatagramPacket getSendingPacket(String command) throws UnknownHostException {
-    InetAddress IPAddress = InetAddress.getByName(HOST);
-    byte[] commandBytes = command.getBytes();
-    return new DatagramPacket(commandBytes, commandBytes.length, IPAddress, PORT);
-  }
-
   private static DatagramPacket getReceivingPacket() {
     byte[] receivingDataBuffer = new byte[2048];
     return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
   }
 
-  private static int getPort(int port) {
+  public static int getPort(int port) {
     try {
-      return (PORT / 10) * 10 + port;
+      return (SEND_PORT / 10) * 10 + port;
     } catch (Exception e) {
-      return PORT;
+      return SEND_PORT;
     }
   }
 
-  private static String getGoipId(String receivedData) {
-    int indexGoip = receivedData.indexOf("goip0");
-    return receivedData.substring(indexGoip + 5, indexGoip + 6);
+  public static String getLineNum(String lineId) {
+    return lineId.substring(lineId.length() - 2);
   }
 
   private static String getNumber(String text) {
@@ -189,16 +228,25 @@ public class GsmService {
     }
   }
 
-  private static boolean checkError(String msg, String errorText) {
-    return !msg.contains(errorText);
-  }
-
-  private static String getSendid() {
+  public static String getSendid() {
     String time = String.valueOf(System.currentTimeMillis());
     return time.substring(time.length() - 7);
   }
 
-  private static String getLastWorld(String text) {
-    return text.substring(text.lastIndexOf(" ") + 1);
+  public static String getFromTo(String start, String end, String text) {
+    int indexStart = text.indexOf(start) + start.length();
+    return text.substring(indexStart, text.indexOf(end, indexStart));
+  }
+
+  private static String getAfterWord(String word, String text) {
+    return text.substring(text.lastIndexOf(word) + word.length());
+  }
+
+  private static String parseSendid(String text) {
+    return getFromTo(":", ";", text);
+  }
+
+  public static Map<Integer, GsmLine> getLines() {
+    return lines;
   }
 }
