@@ -31,7 +31,7 @@ public class GsmService {
 
   private static final Pattern LINE_NUM_PATTERN = Pattern.compile("\\d+");
 
-  private static final Pattern START_END_PATTERN = Pattern.compile("\\:\\s+\\;");
+  private static final Pattern START_END_PATTERN = Pattern.compile(":.+;");
 
   static {
     HOST = PropUtil.getHost();

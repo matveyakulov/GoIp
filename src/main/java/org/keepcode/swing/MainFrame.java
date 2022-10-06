@@ -117,12 +117,14 @@ public class MainFrame extends JFrame {
     button.addActionListener(e -> {
       new Thread(() -> {
         try {
-          int line = 0;
-          String answer = GsmService.reboot(line, gsmLines.get(line).getPassword());
-          SwingUtilities.invokeLater(() -> {
-            rebootCommandAnswer.add(new JLabel(answer));
-            rebootCommandAnswer.revalidate();
-          });
+          int line = 1;
+          if (gsmLines != null && gsmLines.get(line) != null && gsmLines.get(line).getPassword() != null) {
+            String answer = GsmService.reboot(line, gsmLines.get(line).getPassword());
+            SwingUtilities.invokeLater(() -> {
+              rebootCommandAnswer.add(new JLabel(answer));
+              rebootCommandAnswer.revalidate();
+            });
+          }
         } catch (Exception ex) {
           throw new RuntimeException(ex);
         }
