@@ -3,7 +3,6 @@ package org.keepcode.util;
 import org.keepcode.Main;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.Properties;
 
 public class PropUtil {
@@ -23,7 +22,6 @@ public class PropUtil {
       return properties.getProperty("goip.host");
   }
 
-  //Дублирование кода
   public static int getReceivePort() {
     return Integer.parseInt(properties.getProperty("goip.receive.port"));
   }

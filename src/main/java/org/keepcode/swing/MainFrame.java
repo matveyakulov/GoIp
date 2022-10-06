@@ -50,30 +50,31 @@ public class MainFrame extends JFrame {
     setVisible(true);
     add(mainBox);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    new Thread(GsmService::listen).start();
     new Thread(() -> {
-      while (true) {
-        //у тебя в бесконечном цикле запускается бесконечный цикл?!
-        GsmService.listen();
-      }
-    }).start();
-    new Thread(() -> {
-      //каждый раз пересобираются хмммм
       while (true) {
         try {
           Thread.sleep(35 * 1000);
         } catch (InterruptedException e) {
           throw new RuntimeException(e);
         }
-        gsmLines = GsmService.getLines();
-        comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
-        lines = gsmLines.keySet().stream().map(Integer::new).toArray(Integer[]::new);
-        linesComboRebootLine.setModel(new DefaultComboBoxModel<>(lines));
-        linesComboUssd.setModel(new DefaultComboBoxModel<>(lines));
-        linesComboGetNumInfo.setModel(new DefaultComboBoxModel<>(lines));
-        linesComboSetGsmNum.setModel(new DefaultComboBoxModel<>(lines));
-        revalidate();
+        Map<Integer, GsmLine> gsmLineMap = GsmService.getLines();
+        if(gsmLines == null | !gsmLineMap.equals(gsmLines)) {
+          gsmLines = gsmLineMap;
+          updateCheckBox(gsmLines);
+        }
       }
     }).start();
+  }
+
+  private void updateCheckBox(Map<Integer, GsmLine> gsmLines){
+    comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
+    lines = gsmLines.keySet().stream().map(Integer::new).toArray(Integer[]::new);
+    linesComboRebootLine.setModel(new DefaultComboBoxModel<>(lines));
+    linesComboUssd.setModel(new DefaultComboBoxModel<>(lines));
+    linesComboGetNumInfo.setModel(new DefaultComboBoxModel<>(lines));
+    linesComboSetGsmNum.setModel(new DefaultComboBoxModel<>(lines));
+    revalidate();
   }
 
   private String[] createStatusLine(Map<Integer, GsmLine> lineStatus) {
@@ -91,7 +92,6 @@ public class MainFrame extends JFrame {
     sendUssdBtn.addActionListener(e -> {
       new Thread(() -> {
         if (Validator.validateUssd(sendUssdValue.getText())) {
-          //а если ничего не выбрано?
           int lineNum = (Integer) linesComboUssd.getSelectedItem();
           String response = GsmService.sendUssd(lineNum, sendUssdValue.getText(), gsmLines.get(lineNum).getPassword());
           //работа с графикой только в потоке ГРАФИКИ
@@ -138,7 +138,6 @@ public class MainFrame extends JFrame {
       numberInfoAnswer.add(new JLabel(response));
       linesComboGetNumInfo.setSelectedIndex(0);
       numberInfoAnswer.revalidate();
-
     });
     Box innerBox = Box.createHorizontalBox();
     innerBox.add(new JLabel("Узнать номер на линии:"));
