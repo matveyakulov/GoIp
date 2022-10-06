@@ -23,6 +23,7 @@ public class PropUtil {
       return properties.getProperty("goip.host");
   }
 
+  //Дублирование кода
   public static int getReceivePort() {
     return Integer.parseInt(properties.getProperty("goip.receive.port"));
   }

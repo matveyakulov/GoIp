@@ -34,6 +34,8 @@ public class GsmService {
 
   public static String reboot(int line, String password) {
     try (DatagramSocket clientSocket = new DatagramSocket()) {
+      //Naming sendId
+      //Дублирование кода с методом numberInfo, lineReboot, sendUssd, setNum
       String sendid = getSendid();
       String command = String.format("svr_reboot_dev %s %s", sendid, password);
       clientSocket.send(getSendingPacket(command, getPort(line)));
@@ -111,12 +113,15 @@ public class GsmService {
   public static void listen() {
     try (DatagramSocket clientSocket = new DatagramSocket(RECEIVE_PORT)) {
       while (true) {
+        //буфер так и остался постоянным
         byte[] receivingDataBuffer = new byte[2048];
         DatagramPacket receivingPacket = new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
         clientSocket.receive(receivingPacket);
         String receivedData = new String(receivingPacket.getData()).trim();
+        //Можно вынести в константу
         String endSymbol = ";";
         String lineId = getFromTo("id:", endSymbol, receivedData);
+        //все еще в строке id линии хранишь + ты передаешь строчку, ее обрезаешь, возвращаешь и тут парсишь в инт ?! :с
         int receivePort = Integer.parseInt(getLineNum(lineId));
         if (receivedData.startsWith("req:")) {
           handleKeepAlive(endSymbol, receivedData);
@@ -133,10 +138,11 @@ public class GsmService {
 
   private static void handleReceiveCall(String receivedData, int receivePort) {
     String phone = getNumber(receivedData);
+    //форматы можно было в константы вынести
     writeToFile(String.format("\nЗвонок с номера: %s на %s линию\n", phone, receivePort));
     String str = String.format("STATE %s OK\n", parseSendid(receivedData));
     sendAnswer(str, receivePort);
-  }
+  }//дублирование + отступы
   private static void handleReceiveMsg(String receivedData, int receivePort) {
     String msg = getAfterWord("msg:", receivedData);
     writeToFile(String.format("\nСмс '%s' пришло на %d линию\n", msg, receivePort));
@@ -165,10 +171,11 @@ public class GsmService {
         InetAddress.getByName(HOST), getPort(lineNum));
       datagramSocket.send(sendingPacket);
     } catch (Exception e){
-
+      //а шо ты тут игноришь + отступ на {
     }
   }
 
+  //должен ли это делать GSM?
   private static void writeToFile(String msg) {
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName, true));) {
       writer.append(msg);
@@ -178,6 +185,7 @@ public class GsmService {
     }
   }
 
+  //методы в странном порядке расположены
   private static DatagramPacket getSendingPacket(String command, int port) throws UnknownHostException {
     InetAddress IPAddress = InetAddress.getByName(HOST);
     byte[] commandBytes = command.getBytes();
@@ -185,11 +193,13 @@ public class GsmService {
   }
 
   private static DatagramPacket getReceivingPacket() {
+    //опять таки буфер
     byte[] receivingDataBuffer = new byte[2048];
     return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
   }
 
   public static int getPort(int port) {
+    //что конкретно ты тут обрабатываешь
     try {
       return (SEND_PORT / 10) * 10 + port;
     } catch (Exception e) {
@@ -202,6 +212,7 @@ public class GsmService {
   }
 
   private static String getNumber(String text) {
+    //Паттерн можно было в константу
     Matcher matcher = Pattern.compile("\\+?\\d{11}").matcher(text);
     if (matcher.find()) {
       return matcher.group();
@@ -210,8 +221,11 @@ public class GsmService {
     }
   }
 
+  //Почему public, если ты их только в этом классе используешь?
+  //Naming
   public static String getSendid() {
     String time = String.valueOf(System.currentTimeMillis());
+    //можно же делить число
     return time.substring(time.length() - 7);
   }
 
@@ -224,6 +238,7 @@ public class GsmService {
     return text.substring(text.lastIndexOf(word) + word.length());
   }
 
+  //лучше было бы сделать регулярку на эту позицию
   private static String parseSendid(String text) {
     return getFromTo(":", ";", text);
   }

@@ -4,8 +4,11 @@ import java.util.Objects;
 
 public class GsmLine {
 
+  //final!
+  //id в String?
   private String id;
   private String password;
+  //статус можно перечислением
   private String status;
 
   public GsmLine(String id, String password, String status) {

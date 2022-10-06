@@ -52,10 +52,12 @@ public class MainFrame extends JFrame {
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     new Thread(() -> {
       while (true) {
+        //у тебя в бесконечном цикле запускается бесконечный цикл?!
         GsmService.listen();
       }
     }).start();
     new Thread(() -> {
+      //каждый раз пересобираются хмммм
       while (true) {
         try {
           Thread.sleep(35 * 1000);
@@ -89,8 +91,10 @@ public class MainFrame extends JFrame {
     sendUssdBtn.addActionListener(e -> {
       new Thread(() -> {
         if (Validator.validateUssd(sendUssdValue.getText())) {
+          //а если ничего не выбрано?
           int lineNum = (Integer) linesComboUssd.getSelectedItem();
           String response = GsmService.sendUssd(lineNum, sendUssdValue.getText(), gsmLines.get(lineNum).getPassword());
+          //работа с графикой только в потоке ГРАФИКИ
           sendUssdAnswer.add(new JLabel(response));
           linesComboUssd.setSelectedIndex(0);
           sendUssdValue.setText("");
