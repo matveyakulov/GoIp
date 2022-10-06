@@ -1,19 +1,22 @@
 package org.keepcode.validate;
 
+import org.keepcode.match.TextMatcher;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.keepcode.match.TextMatcher.match;
+
 public class Validator {
 
+  private static final Pattern NUM_PATTERN = Pattern.compile("^\\+?\\d{11}$");
+  private static final Pattern USSD_PATTERN = Pattern.compile("[+, #,*, \\d]*");
+
   public static boolean validateNum(String num){
-    Pattern pattern = Pattern.compile("^\\+?\\d{11}$");
-    Matcher matcher = pattern.matcher(num);
-    return matcher.matches();
+    return match(NUM_PATTERN, num).length() != 0;
   }
 
   public static boolean validateUssd(String ussd){
-    Pattern pattern = Pattern.compile("[+, #,*, \\d]*");
-    Matcher matcher = pattern.matcher(ussd);
-    return matcher.matches();
+    return match(USSD_PATTERN, ussd).length() != 0;
   }
 }

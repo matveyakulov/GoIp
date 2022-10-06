@@ -7,12 +7,11 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.keepcode.match.TextMatcher.match;
 import static org.keepcode.util.CommandStrings.*;
 import static org.keepcode.util.MessageUtil.*;
 import static org.keepcode.writer.FileWriter.write;
@@ -26,13 +25,13 @@ public class GsmService {
   private static final Map<Integer, GsmLine> lines;
 
   private static final String ERROR_MSG = "ERROR";
-  private static final String endSymbol = ";";
+  private static final String END_SYMBOL = ";";
 
-  private static final String NUMBER_PATTERN = "\\+?\\d+";
+  private static final Pattern NUMBER_PATTERN = Pattern.compile("\\+?\\d+");
 
-  private static final String LINE_NUM_PATTERN = "\\d+";
+  private static final Pattern LINE_NUM_PATTERN = Pattern.compile("\\d+");
 
-  private static final String START_END_PATTERN = "\\:\\s+\\;";
+  private static final Pattern START_END_PATTERN = Pattern.compile("\\:\\s+\\;");
   private static final int DEFAULT_LINE = 2;
 
   static {
@@ -44,10 +43,7 @@ public class GsmService {
 
   public static String reboot(int line, String password) {
     try {
-      String sendId = getSendId();
-      String command = String.format(SVR_REBOOT_DEV_PATTERN, sendId, password);
-      String answer = sendCommand(command, line);
-      return getAfterWord(sendId, answer);
+      return sendCommand(SVR_REBOOT_DEV, line, password);
     } catch (Exception e) {
       return ERROR_MSG;
     }
@@ -55,10 +51,7 @@ public class GsmService {
 
   public static String numberInfo(int line, String password) {
     try {
-      String sendId = getSendId();
-      String command = String.format(GET_GSM_NUM_PATTERN, sendId, password);
-      String answer = sendCommand(command, line);
-      return getAfterWord(sendId, answer);
+      return sendCommand(GET_GSM_NUM, line, password);
     } catch (Exception e) {
       return ERROR_MSG;
     }
@@ -66,10 +59,7 @@ public class GsmService {
 
   public static String lineReboot(int line, String password) {
     try {
-      String sendId = getSendId();
-      String command = String.format(SVR_REBOOT_MODULE_PATTERN, sendId, password);
-      String answer = sendCommand(command, line);
-      return getAfterWord(sendId, answer);
+      return sendCommand(SVR_REBOOT_MODULE, line, password);
     } catch (Exception e) {
       return ERROR_MSG;
     }
@@ -77,10 +67,7 @@ public class GsmService {
 
   public static String sendUssd(int line, String ussd, String password) {
     try {
-      String sendId = getSendId();
-      String command = String.format(USSD_PATTERN, sendId, password, ussd);
-      String receivedData = sendCommand(command, line);
-      return getAfterWord(sendId, receivedData);
+      return sendCommand(USSD, line, password, ussd);
     } catch (Exception e) {
       return ERROR_MSG;
     }
@@ -88,21 +75,25 @@ public class GsmService {
 
   public static String setGsmNum(String num, int line, String password) {
     try {
-      String command = String.format(SET_GSM_NUM_PATTERN, getSendId(), num, password);
-      String answer = sendCommand(command, line);
-      return getAfterWord(num, answer);
+      return sendCommand(SET_GSM_NUM, line, num, password);
     } catch (Exception e) {
       return ERROR_MSG;
     }
   }
 
-  private static String sendCommand(String command, int line) {
-    System.out.println(command);
+  private static String sendCommand(String command, int line, String... params) {
+    String sendId = getSendId();
+    StringBuilder stringBuilder = new StringBuilder(command + " " + sendId);
+    for (String param : params) {
+      stringBuilder.append(" ").append(param);
+    }
+    System.out.println(stringBuilder);
     try (DatagramSocket clientSocket = new DatagramSocket()) {
-      clientSocket.send(getSendingPacket(command, getPort(line)));
+      clientSocket.send(getSendingPacket(stringBuilder.toString(), getPort(line)));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      return new String(receivingPacket.getData()).trim();
+      System.out.println(new String(receivingPacket.getData()).trim());
+      return getAfterWord(sendId, new String(receivingPacket.getData()).trim());
     } catch (Exception e) {
       return ERROR_MSG;
     }
@@ -115,7 +106,7 @@ public class GsmService {
         clientSocket.receive(receivingPacket);
         String receivedData = new String(receivingPacket.getData()).trim();
         System.out.println(receivedData);
-        String lineId = getFromTo("id:", endSymbol, receivedData);
+        String lineId = getFromTo("id:", receivedData);
         int receivePort = getLineNum(lineId);
         if (receivedData.startsWith("req:")) {
           handleKeepAlive(receivedData);
@@ -145,10 +136,10 @@ public class GsmService {
   }
 
   private static void handleKeepAlive(String receivedData) {
-    String lineId = getFromTo("id:", endSymbol, receivedData);
+    String lineId = getFromTo("id:", receivedData);
     int lineNum = getLineNum(lineId);
-    String password = getFromTo("pass:", endSymbol, receivedData);
-    String status = getFromTo("gsm_status:", endSymbol, receivedData);
+    String password = getFromTo("pass:", receivedData);
+    String status = getFromTo("gsm_status:", receivedData);
     lines.put(lineNum, new GsmLine(password, status));
     int ansStatus = 0;
     if (lines.get(lineNum) != null && !lines.get(lineNum).getPassword().equals(password)) {
@@ -196,23 +187,14 @@ public class GsmService {
     return match(NUMBER_PATTERN, text);
   }
 
-  private static String match(String pattern, String text) {
-    Matcher matcher = Pattern.compile(pattern).matcher(text);
-    if (matcher.find()) {
-      return matcher.group();
-    } else {
-      return "";
-    }
-  }
-
   private static String getSendId() {
     return String.valueOf((int) (System.currentTimeMillis() % 1e07));
   }
 
-  private static String getFromTo(String start, String end, String text) {
+  private static String getFromTo(String start, String text) {
     try {
       int indexStart = text.indexOf(start) + start.length();
-      return text.substring(indexStart, text.indexOf(end, indexStart));
+      return text.substring(indexStart, text.indexOf(END_SYMBOL, indexStart));
     } catch (Exception e) {
       return ERROR_MSG;
     }
