@@ -10,7 +10,7 @@ public class TextMatcher {
     if (matcher.find()) {
       return matcher.group();
     } else {
-      return "";
+      throw new RuntimeException(String.format("В тексте %s ничего не найдено по паттерну %s", text, pattern.pattern()));
     }
   }
 }

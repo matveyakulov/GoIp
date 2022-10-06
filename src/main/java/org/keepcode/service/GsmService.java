@@ -32,7 +32,6 @@ public class GsmService {
   private static final Pattern LINE_NUM_PATTERN = Pattern.compile("\\d+");
 
   private static final Pattern START_END_PATTERN = Pattern.compile("\\:\\s+\\;");
-  private static final int DEFAULT_LINE = 2;
 
   static {
     HOST = PropUtil.getHost();
@@ -83,16 +82,15 @@ public class GsmService {
 
   private static String sendCommand(String command, int line, String... params) {
     String sendId = getSendId();
-    StringBuilder stringBuilder = new StringBuilder(command + " " + sendId);
+    StringBuilder stringBuilder = new StringBuilder(command);
+    stringBuilder.append(" ").append(sendId);
     for (String param : params) {
       stringBuilder.append(" ").append(param);
     }
-    System.out.println(stringBuilder);
     try (DatagramSocket clientSocket = new DatagramSocket()) {
       clientSocket.send(getSendingPacket(stringBuilder.toString(), getPort(line)));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      System.out.println(new String(receivingPacket.getData()).trim());
       return getAfterWord(sendId, new String(receivingPacket.getData()).trim());
     } catch (Exception e) {
       return ERROR_MSG;
@@ -105,19 +103,22 @@ public class GsmService {
         DatagramPacket receivingPacket = getReceivingPacket();
         clientSocket.receive(receivingPacket);
         String receivedData = new String(receivingPacket.getData()).trim();
-        System.out.println(receivedData);
         String lineId = getFromTo("id:", receivedData);
-        int receivePort = getLineNum(lineId);
-        if (receivedData.startsWith("req:")) {
-          handleKeepAlive(receivedData);
-        } else if (receivedData.startsWith("RECEIVE:")) {
-          handleReceiveMsg(receivedData, receivePort);
-        } else if (receivedData.startsWith("STATE:")) {
-          handleReceiveCall(receivedData, receivePort);
+        try {
+          int receivePort = getLineNum(lineId);
+          if (receivedData.startsWith("req:")) {
+            handleKeepAlive(receivedData);
+          } else if (receivedData.startsWith("RECEIVE:")) {
+            handleReceiveMsg(receivedData, receivePort);
+          } else if (receivedData.startsWith("STATE:")) {
+            handleReceiveCall(receivedData, receivePort);
+          }
+        } catch (Exception e) {
+          System.out.println(e.getMessage());
         }
       }
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println(e.getMessage());
     }
   }
 
@@ -179,7 +180,7 @@ public class GsmService {
     try {
       return Integer.parseInt(match(LINE_NUM_PATTERN, lineId));
     } catch (Exception e) {
-      return DEFAULT_LINE;
+      throw new RuntimeException(e.getMessage(), e);
     }
   }
 

@@ -7,10 +7,9 @@ import java.util.Properties;
 
 public class PropUtil {
 
-  private static final Properties properties;
+  private static final Properties properties = new Properties();
 
   static {
-    properties = new Properties();
     try {
       properties.load(Main.class.getClassLoader().getResourceAsStream("config.properties"));
     } catch (IOException e) {
