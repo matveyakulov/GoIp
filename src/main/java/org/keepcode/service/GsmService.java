@@ -185,10 +185,8 @@ public class GsmService {
   }
 
   private static void sendAnswer(String answer, int lineNum) {
-    byte[] answerBytes = answer.getBytes();
     try (DatagramSocket datagramSocket = DatagramSocketFactory.getSocket()) {
-      DatagramPacket sendingPacket = new DatagramPacket(answerBytes, answerBytes.length,
-        InetAddressFactory.getAddress(), getPort(lineNum));
+      DatagramPacket sendingPacket = getSendingPacket(answer, getPort(lineNum));
       datagramSocket.send(sendingPacket);
     } catch (Exception e) {
       System.out.println(e.getMessage());
