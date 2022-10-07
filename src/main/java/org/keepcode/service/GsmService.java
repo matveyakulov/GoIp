@@ -11,9 +11,9 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.keepcode.match.TextMatcher.match;
 import static org.keepcode.util.CommandStrings.*;
 import static org.keepcode.util.MessageUtil.*;
 import static org.keepcode.writer.FileWriter.write;
@@ -173,6 +173,15 @@ public class GsmService {
 
   private static String parseSendId(String text) throws Exception {
     return match(START_END_PATTERN, text);
+  }
+
+  public static String match(Pattern pattern, String text) throws Exception {
+    Matcher matcher = pattern.matcher(text);
+    if (matcher.find()) {
+      return matcher.group();
+    } else {
+      throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s", text, pattern.pattern()));
+    }
   }
 
   private static void sendAnswer(String answer, int lineNum) {
