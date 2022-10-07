@@ -11,6 +11,7 @@ public class PropUtil {
 
   static {
     try {
+      //todo подумай еще над обработкой
       properties.load(Main.class.getClassLoader().getResourceAsStream("config.properties"));
     } catch (IOException e) {
       throw new RuntimeException(e);

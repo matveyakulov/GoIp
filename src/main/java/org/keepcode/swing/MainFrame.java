@@ -66,6 +66,7 @@ public class MainFrame extends JFrame {
           throw new RuntimeException(e);
         }
         Map<Integer, GsmLine> gsmLineMap = GsmService.getLines();
+        //todo подумай еще
         if (gsmLines == null | !gsmLineMap.equals(gsmLines)) {
           gsmLines = gsmLineMap;
           SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLines));
@@ -88,6 +89,7 @@ public class MainFrame extends JFrame {
   }
 
   private static void changeEnableBtn() {
+    //todo what?
     boolean enable = !sendUssdBtn.isEnabled();
     sendUssdBtn.setEnabled(enable);
     rebootGoipBtn.setEnabled(enable);

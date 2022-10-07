@@ -16,12 +16,14 @@ import static org.keepcode.util.CommandStrings.*;
 import static org.keepcode.util.MessageUtil.*;
 import static org.keepcode.writer.FileWriter.write;
 
+//todo расположи методы в правильном порядке!
 public class GsmService {
 
   private static final String HOST;
   private static final int RECEIVE_PORT;
   private static final int SEND_PORT;
 
+  //todo naming
   private static final Map<Integer, GsmLine> lines;
 
   private static final String ERROR_MSG = "ERROR";
@@ -31,6 +33,7 @@ public class GsmService {
 
   private static final Pattern LINE_NUM_PATTERN = Pattern.compile("\\d+");
 
+  //todo ты уверен, что такая регулярка - нормальная?
   private static final Pattern START_END_PATTERN = Pattern.compile(":.+;");
 
   static {
@@ -80,8 +83,10 @@ public class GsmService {
     }
   }
 
+  //todo В принципе мог бы передавать сюда сразу собранную команду
   private static String sendCommand(String command, int line, String... params) {
     String sendId = getSendId();
+    //todo Naming
     StringBuilder stringBuilder = new StringBuilder(command);
     stringBuilder.append(" ").append(sendId);
     for (String param : params) {
@@ -90,7 +95,9 @@ public class GsmService {
     try (DatagramSocket clientSocket = new DatagramSocket()) {
       clientSocket.send(getSendingPacket(stringBuilder.toString(), getPort(line)));
       DatagramPacket receivingPacket = getReceivingPacket();
+      //todo что происходит, если ответа нет долгое время или вообще нет?
       clientSocket.receive(receivingPacket);
+      //todo Зачем тут trim?
       return getAfterWord(sendId, new String(receivingPacket.getData()).trim());
     } catch (Exception e) {
       return ERROR_MSG;
@@ -105,6 +112,7 @@ public class GsmService {
         String receivedData = new String(receivingPacket.getData()).trim();
         String lineId = getFromTo("id:", receivedData);
         try {
+          //todo switch?
           int receivePort = getLineNum(lineId);
           if (receivedData.startsWith("req:")) {
             handleKeepAlive(receivedData);
@@ -162,12 +170,14 @@ public class GsmService {
   }
 
   private static DatagramPacket getSendingPacket(String command, int port) throws UnknownHostException {
+    //todo может быть стоит вынести сразу InetAddress
     InetAddress IPAddress = InetAddress.getByName(HOST);
     byte[] commandBytes = command.getBytes();
     return new DatagramPacket(commandBytes, commandBytes.length, IPAddress, port);
   }
 
   private static DatagramPacket getReceivingPacket() {
+    //todo Goip только по UDP общается? Если так, может стоит вынести размер датаграммы в константу?
     byte[] receivingDataBuffer = new byte[8196];
     return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
   }
@@ -178,6 +188,7 @@ public class GsmService {
 
   private static int getLineNum(String lineId) {
     try {
+      //todo зачем тут обработка, в которой ты просто кидаешь ошибку?
       return Integer.parseInt(match(LINE_NUM_PATTERN, lineId));
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e);
@@ -188,6 +199,7 @@ public class GsmService {
     return match(NUMBER_PATTERN, text);
   }
 
+  //todo тут до сих пор стрингу возвращаешь
   private static String getSendId() {
     return String.valueOf((int) (System.currentTimeMillis() % 1e07));
   }
@@ -203,6 +215,7 @@ public class GsmService {
 
   private static String getAfterWord(String word, String text) {
     try {
+      //todo такая реализация обработки ответа плохая
       return text.substring(text.lastIndexOf(word) + word.length());
     } catch (Exception e) {
       return ERROR_MSG;
