@@ -82,7 +82,9 @@ public class MainFrame extends JFrame {
     linesComboGetNumInfo.setModel(new DefaultComboBoxModel<>(lines));
     linesComboSetGsmNum.setModel(new DefaultComboBoxModel<>(lines));
     revalidate();
-    changeEnableBtn();
+    if(!gsmLines.isEmpty()) {
+      changeEnableBtn();
+    }
   }
 
   private static void changeEnableBtn() {
