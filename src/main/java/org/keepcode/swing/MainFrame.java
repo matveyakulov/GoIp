@@ -6,10 +6,9 @@ import org.keepcode.validate.Validator;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.List;
 import java.util.Map;
 
-import static org.keepcode.validate.Validator.validateNum;
+import static org.keepcode.validate.Validator.isValidNum;
 
 public class MainFrame extends JFrame {
 
@@ -64,8 +63,8 @@ public class MainFrame extends JFrame {
       while (true) {
         try {
           Thread.sleep(35 * 1000);
-        } catch (InterruptedException e) {
-          throw new RuntimeException(e);
+        } catch (InterruptedException e) {  // подождать не удалось - берем что есть
+          System.out.println(e.getCause().getMessage());
         }
         Map<Integer, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
         if (gsmLinesCurrent == null ||
@@ -84,10 +83,10 @@ public class MainFrame extends JFrame {
     linesComboUssd.setModel(new DefaultComboBoxModel<>(lines));
     linesComboGetNumInfo.setModel(new DefaultComboBoxModel<>(lines));
     linesComboSetGsmNum.setModel(new DefaultComboBoxModel<>(lines));
-    revalidate();
-    if(!gsmLines.isEmpty()) {
+    if (!gsmLines.isEmpty()) {
       changeEnableBtn();
     }
+    revalidate();
   }
 
   private static void changeEnableBtn() {
@@ -113,7 +112,7 @@ public class MainFrame extends JFrame {
     JTextField sendUssdValue = new CustomTextField();
     sendUssdBtn.addActionListener(e ->
       new Thread(() -> {
-        if (Validator.validateUssd(sendUssdValue.getText()) && linesComboUssd.getSelectedItem() != null) {
+        if (Validator.isValidUssd(sendUssdValue.getText()) && linesComboUssd.getSelectedItem() != null) {
           int lineNum = (Integer) linesComboUssd.getSelectedItem();
           String response = GsmService.sendUssd(lineNum, sendUssdValue.getText(), gsmLinesCurrent.get(lineNum).getPassword());
           SwingUtilities.invokeLater(() -> {
@@ -138,8 +137,8 @@ public class MainFrame extends JFrame {
     rebootGoipBtn = new JButton("Рестарт goip");
     rebootGoipBtn.addActionListener(e -> {
       new Thread(() -> {
-        try {
-          int line = gsmLinesCurrent.keySet().stream().findFirst().orElseThrow(() -> new RuntimeException("Нет линий"));
+        if(gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
+          int line = gsmLinesCurrent.keySet().stream().findFirst().get();
           if (gsmLinesCurrent.get(line).getPassword() != null) {
             String answer = GsmService.reboot(line, gsmLinesCurrent.get(line).getPassword());
             SwingUtilities.invokeLater(() -> {
@@ -147,8 +146,6 @@ public class MainFrame extends JFrame {
               rebootCommandAnswer.revalidate();
             });
           }
-        } catch (Exception ex) {
-          throw new RuntimeException(ex);
         }
       }).start();
     });
@@ -206,7 +203,7 @@ public class MainFrame extends JFrame {
     sendSetNumBtn = new JButton("Отправить");
     sendSetNumBtn.addActionListener(e ->
       new Thread(() -> {
-        if (validateNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
+        if (isValidNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
           int line = (Integer) linesComboSetGsmNum.getSelectedItem();
           String answer = GsmService.setGsmNum(number.getText(), line, gsmLinesCurrent.get(line).getPassword());
           linesComboSetGsmNum.setSelectedIndex(0);

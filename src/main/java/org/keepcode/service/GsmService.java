@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.keepcode.factory.InetAddressFactory.getAddress;
 import static org.keepcode.util.CommandStrings.*;
 import static org.keepcode.util.MessageUtil.*;
 import static org.keepcode.writer.FileWriter.write;
@@ -65,7 +66,7 @@ public class GsmService {
       clientSocket.receive(receivingPacket);
       return getAfterWord(parseSendId(command), getAnswerFromPacket(receivingPacket));
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      System.out.println(e.getCause().getMessage());
       return ERROR_MSG;
     }
   }
@@ -75,19 +76,18 @@ public class GsmService {
   }
 
   private static DatagramPacket getSendingPacket(String command, int port) throws UnknownHostException {
-    InetAddress IPAddress = InetAddressFactory.getAddress();
     byte[] commandBytes = command.getBytes();
-    return new DatagramPacket(commandBytes, commandBytes.length, IPAddress, port);
+    return new DatagramPacket(commandBytes, commandBytes.length, getAddress(), port);
   }
 
   public static void listen() {
     try (DatagramSocket clientSocket = new DatagramSocket(RECEIVE_PORT)) {
       while (true) {
-        DatagramPacket receivingPacket = getReceivingPacket();
-        clientSocket.receive(receivingPacket);
-        String receivedData = getAnswerFromPacket(receivingPacket);
-        String lineId = getStringFrom("id:", receivedData);
         try {
+          DatagramPacket receivingPacket = getReceivingPacket();
+          clientSocket.receive(receivingPacket);
+          String receivedData = getAnswerFromPacket(receivingPacket);
+          String lineId = getStringFrom("id:", receivedData);
           String prefix = receivedData.substring(0, receivedData.indexOf(":"));
           switch (prefix) {
             case "req":
@@ -100,7 +100,7 @@ public class GsmService {
               handleReceiveCall(receivedData, lineId);
           }
         } catch (Exception e) {
-          System.out.println(e.getMessage());
+          System.out.println(e.getCause().getMessage());
         }
       }
     } catch (Exception e) {
@@ -122,8 +122,7 @@ public class GsmService {
 
   private static void handleReceiveCall(String receivedData, String lineId) throws Exception {
     int receivePort = getLineNum(lineId);
-    String phone = getNumber(receivedData);
-    write(String.format(RECEIVE_CALL_MSG, phone, receivePort));
+    write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), receivePort));
     String str = String.format(STATE_OK_MSG, parseSendId(receivedData));
     sendAnswer(str, receivePort);
   }
@@ -145,15 +144,13 @@ public class GsmService {
   }
 
   private static void handleKeepAlive(String receivedData) throws Exception {
-    String lineId = getStringFrom("id:", receivedData);
-    int lineNum = getLineNum(lineId);
+    int lineNum = getLineNum(getStringFrom("id:", receivedData));
     String password = getStringFrom("pass:", receivedData);
-    String status = getStringFrom("gsm_status:", receivedData);
     int ansStatus = 0;
     if (gsmLineMap.get(lineNum) != null && !gsmLineMap.get(lineNum).getPassword().equals(password)) {
       ansStatus = -1;
     }
-    gsmLineMap.put(lineNum, new GsmLine(password, status));
+    gsmLineMap.put(lineNum, new GsmLine(password, getStringFrom("gsm_status:", receivedData)));
     String answer = String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus);
     sendAnswer(answer, lineNum);
   }
@@ -177,7 +174,7 @@ public class GsmService {
       DatagramPacket sendingPacket = getSendingPacket(answer, getPort(lineNum));
       datagramSocket.send(sendingPacket);
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      System.out.println(e.getCause().getMessage());
     }
   }
 
