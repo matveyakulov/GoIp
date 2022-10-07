@@ -7,26 +7,34 @@ import java.util.Properties;
 
 public class PropUtil {
 
+  private static final String CONFIG_FILE_NAME = "config.properties";
   private static final Properties properties = new Properties();
 
   static {
     try {
-      //todo подумай еще над обработкой
-      properties.load(Main.class.getClassLoader().getResourceAsStream("config.properties"));
+      properties.load(Main.class.getClassLoader().getResourceAsStream(CONFIG_FILE_NAME));
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      System.out.println("Чтение конфига завершилось с ошибкой " + e.getMessage());
     }
   }
 
   public static String getHost(){
-      return properties.getProperty("goip.host");
+      return getProp("goip.host");
   }
 
-  public static int getReceivePort() {
-    return Integer.parseInt(properties.getProperty("goip.receive.port"));
+  public static Integer getReceivePort() {
+    return Integer.parseInt(getProp("goip.receive.port"));
   }
 
-  public static int getDefaultSendPort() {
-    return Integer.parseInt(properties.getProperty("goip.send.default.port"));
+  public static Integer getDefaultSendPort() {
+    return Integer.valueOf(getProp("goip.send.default.port"));
+  }
+
+  public static Integer getSocketTimeout() {
+    return Integer.valueOf(getProp("goip.timeout"));
+  }
+
+  private static String getProp(String prop){
+    return properties.getProperty(prop);
   }
 }

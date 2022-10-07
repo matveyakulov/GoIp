@@ -6,6 +6,7 @@ import org.keepcode.validate.Validator;
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.List;
 import java.util.Map;
 
 import static org.keepcode.validate.Validator.validateNum;
@@ -31,7 +32,7 @@ public class MainFrame extends JFrame {
 
   private final ComboBoxLines<Integer> linesComboSetGsmNum = new ComboBoxLines<>(lines);
 
-  private static Map<Integer, GsmLine> gsmLines;
+  private static Map<Integer, GsmLine> gsmLinesCurrent;
 
   private static JButton sendUssdBtn;
   private static JButton rebootGoipBtn;
@@ -65,11 +66,11 @@ public class MainFrame extends JFrame {
         } catch (InterruptedException e) {
           throw new RuntimeException(e);
         }
-        Map<Integer, GsmLine> gsmLineMap = GsmService.getLines();
-        //todo подумай еще
-        if (gsmLines == null | !gsmLineMap.equals(gsmLines)) {
-          gsmLines = gsmLineMap;
-          SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLines));
+        Map<Integer, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
+        if (gsmLinesCurrent == null ||
+          !gsmLinesCurrent.values().equals(gsmLinesNew.values())) {
+          gsmLinesCurrent = gsmLinesNew;
+          SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLinesCurrent));
         }
       }
     }).start();
@@ -89,7 +90,6 @@ public class MainFrame extends JFrame {
   }
 
   private static void changeEnableBtn() {
-    //todo what?
     boolean enable = !sendUssdBtn.isEnabled();
     sendUssdBtn.setEnabled(enable);
     rebootGoipBtn.setEnabled(enable);
@@ -114,7 +114,7 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (Validator.validateUssd(sendUssdValue.getText()) && linesComboUssd.getSelectedItem() != null) {
           int lineNum = (Integer) linesComboUssd.getSelectedItem();
-          String response = GsmService.sendUssd(lineNum, sendUssdValue.getText(), gsmLines.get(lineNum).getPassword());
+          String response = GsmService.sendUssd(lineNum, sendUssdValue.getText(), gsmLinesCurrent.get(lineNum).getPassword());
           SwingUtilities.invokeLater(() -> {
             sendUssdAnswer.add(new JLabel(response));
             linesComboUssd.setSelectedIndex(0);
@@ -138,9 +138,9 @@ public class MainFrame extends JFrame {
     rebootGoipBtn.addActionListener(e -> {
       new Thread(() -> {
         try {
-          int line = gsmLines.keySet().stream().findFirst().orElseThrow(() -> new RuntimeException("Нет линий"));
-          if (gsmLines.get(line).getPassword() != null) {
-            String answer = GsmService.reboot(line, gsmLines.get(line).getPassword());
+          int line = gsmLinesCurrent.keySet().stream().findFirst().orElseThrow(() -> new RuntimeException("Нет линий"));
+          if (gsmLinesCurrent.get(line).getPassword() != null) {
+            String answer = GsmService.reboot(line, gsmLinesCurrent.get(line).getPassword());
             SwingUtilities.invokeLater(() -> {
               rebootCommandAnswer.add(new JLabel(answer));
               rebootCommandAnswer.revalidate();
@@ -161,7 +161,7 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (linesComboGetNumInfo.getSelectedItem() != null) {
           int line = (Integer) linesComboGetNumInfo.getSelectedItem();
-          String response = GsmService.numberInfo(line, gsmLines.get(line).getPassword());
+          String response = GsmService.numberInfo(line, gsmLinesCurrent.get(line).getPassword());
           SwingUtilities.invokeLater(() -> {
             numberInfoAnswer.add(new JLabel(response));
             linesComboGetNumInfo.setSelectedIndex(0);
@@ -183,7 +183,7 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (linesComboRebootLine.getSelectedItem() != null) {
           int line = (Integer) linesComboRebootLine.getSelectedItem();
-          String answer = GsmService.lineReboot(line, gsmLines.get(line).getPassword());
+          String answer = GsmService.lineReboot(line, gsmLinesCurrent.get(line).getPassword());
           SwingUtilities.invokeLater(() -> {
             linesComboRebootLine.setSelectedIndex(0);
             rebootLineCommandAnswer.add(new JLabel(answer));
@@ -207,7 +207,7 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (validateNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
           int line = (Integer) linesComboSetGsmNum.getSelectedItem();
-          String answer = GsmService.setGsmNum(number.getText(), line, gsmLines.get(line).getPassword());
+          String answer = GsmService.setGsmNum(number.getText(), line, gsmLinesCurrent.get(line).getPassword());
           linesComboSetGsmNum.setSelectedIndex(0);
           SwingUtilities.invokeLater(() -> {
             number.setText("");
