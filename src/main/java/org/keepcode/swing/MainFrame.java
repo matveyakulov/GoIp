@@ -53,6 +53,7 @@ public class MainFrame extends JFrame {
     mainBox.add(createRebootLineCommand());
     mainBox.add(rebootLineCommandAnswer);
     mainBox.add(createSetGsmNumCommand());
+    mainBox.add(setGsmNumAnswer);
     mainBox.add(comboBoxLinesStatus);
     setVisible(true);
     add(mainBox);
@@ -215,7 +216,7 @@ public class MainFrame extends JFrame {
             setGsmNumAnswer.revalidate();
           });
         }
-      })
+      }).start()
     );
     Box innerBox = Box.createHorizontalBox();
     innerBox.add(new JLabel("На линии:"));
@@ -223,7 +224,6 @@ public class MainFrame extends JFrame {
     innerBox.add(new JLabel("изменить номер на:"));
     innerBox.add(number);
     innerBox.add(sendSetNumBtn);
-    innerBox.add(setGsmNumAnswer);
     return innerBox;
   }
 }

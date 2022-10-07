@@ -5,6 +5,7 @@ import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.util.PropUtil;
 
+import javax.swing.plaf.synth.SynthTextAreaUI;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -30,10 +31,7 @@ public class GsmService {
 
   private static final Pattern NUMBER_PATTERN = Pattern.compile("\\+?\\d+");
 
-  private static final Pattern LINE_NUM_PATTERN = Pattern.compile("\\d+");
-
-  private static final Pattern START_END_PATTERN = Pattern.compile(":.+;");
-
+  private static final Pattern NUM_PATTERN = Pattern.compile("\\d+");
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
   static {
@@ -73,7 +71,7 @@ public class GsmService {
       clientSocket.send(getSendingPacket(commandBuilder.toString(), getPort(line)));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      return getAfterWord(String.valueOf(sendId), new String(receivingPacket.getData()).trim());
+      return getAfterWord(String.valueOf(sendId), getAnswerFromPacket(receivingPacket));
     } catch (Exception e) {
       System.out.println(e.getMessage());
       return ERROR_MSG;
@@ -95,7 +93,7 @@ public class GsmService {
       while (true) {
         DatagramPacket receivingPacket = getReceivingPacket();
         clientSocket.receive(receivingPacket);
-        String receivedData = new String(receivingPacket.getData()).trim();
+        String receivedData = getAnswerFromPacket(receivingPacket);
         String lineId = getStringFrom("id:", receivedData);
         try {
           String prefix = receivedData.substring(0, receivedData.indexOf(":"));
@@ -114,11 +112,16 @@ public class GsmService {
         }
       }
     } catch (Exception e) {
-      System.out.println(e.getMessage());
+      System.out.println(e.getCause().getMessage());
       System.exit(-1);
     }
   }
 
+  private static String getAnswerFromPacket(DatagramPacket receivingPacket){
+    byte[] array = new byte[receivingPacket.getLength()];
+    System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(),array , 0, receivingPacket.getLength());
+    return new String(array);
+  }
   private static DatagramPacket getReceivingPacket() {
     byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
     return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
@@ -163,7 +166,7 @@ public class GsmService {
   }
 
   private static int getLineNum(String lineId) throws Exception {
-    return Integer.parseInt(match(LINE_NUM_PATTERN, lineId));
+    return Integer.parseInt(match(NUM_PATTERN, lineId));
   }
 
   private static String getStringFrom(String start, String text) {
@@ -172,7 +175,7 @@ public class GsmService {
   }
 
   private static String parseSendId(String text) throws Exception {
-    return match(START_END_PATTERN, text);
+    return match(NUM_PATTERN, text);
   }
 
   public static String match(Pattern pattern, String text) throws Exception {
