@@ -134,8 +134,8 @@ public class MainFrame extends JFrame {
     rebootGoipBtn.addActionListener(e -> {
       new Thread(() -> {
         try {
-          int line = 1;
-          if (gsmLines != null && gsmLines.get(line) != null && gsmLines.get(line).getPassword() != null) {
+          int line = gsmLines.keySet().stream().findFirst().orElseThrow(() -> new RuntimeException("Нет линий"));
+          if (gsmLines.get(line).getPassword() != null) {
             String answer = GsmService.reboot(line, gsmLines.get(line).getPassword());
             SwingUtilities.invokeLater(() -> {
               rebootCommandAnswer.add(new JLabel(answer));
