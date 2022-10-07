@@ -7,11 +7,7 @@ import java.net.UnknownHostException;
 
 public class InetAddressFactory {
 
-  private static final String HOST;
-
-  static {
-    HOST = PropUtil.getHost();
-  }
+  private static final String HOST = PropUtil.getHost();
 
   public static InetAddress getAddress() throws UnknownHostException {
     return InetAddress.getByName(HOST);

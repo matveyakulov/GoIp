@@ -5,7 +5,6 @@ import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.util.PropUtil;
 
-import javax.swing.plaf.synth.SynthTextAreaUI;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -21,10 +20,10 @@ import static org.keepcode.writer.FileWriter.write;
 
 public class GsmService {
 
-  private static final int RECEIVE_PORT;
-  private static final int SEND_PORT;
+  private static final int RECEIVE_PORT = PropUtil.getReceivePort();
+  private static final int SEND_PORT = PropUtil.getDefaultSendPort();
 
-  private static final Map<Integer, GsmLine> gsmLineMap;
+  private static final Map<Integer, GsmLine> gsmLineMap = new ConcurrentHashMap<>();
 
   private static final String ERROR_MSG = "ERROR";
   private static final String END_SYMBOL = ";";
@@ -34,58 +33,51 @@ public class GsmService {
   private static final Pattern NUM_PATTERN = Pattern.compile("\\d+");
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
-  static {
-    RECEIVE_PORT = PropUtil.getReceivePort();
-    SEND_PORT = PropUtil.getDefaultSendPort();
-    gsmLineMap = new ConcurrentHashMap<>();
-  }
-
   public static String reboot(int line, String password) {
-    return sendCommandAndGetAnswer(SVR_REBOOT_DEV, line, password);
+    String command = String.format(SVR_REBOOT_DEV, getSendId(), password);
+    return sendCommandAndGetAnswer(command, line);
   }
 
   public static String numberInfo(int line, String password) {
-    return sendCommandAndGetAnswer(GET_GSM_NUM, line, password);
+    String command = String.format(GET_GSM_NUM, getSendId(), password);
+    return sendCommandAndGetAnswer(command, line);
   }
 
   public static String lineReboot(int line, String password) {
-    return sendCommandAndGetAnswer(SVR_REBOOT_MODULE, line, password);
+    String command = String.format(SVR_REBOOT_MODULE, getSendId(), password);
+    return sendCommandAndGetAnswer(command, line);
   }
 
   public static String sendUssd(int line, String ussd, String password) {
-    return sendCommandAndGetAnswer(USSD, line, password, ussd);
+    String command = String.format(USSD, getSendId(), password, ussd);
+    return sendCommandAndGetAnswer(command, line);
   }
 
   public static String setGsmNum(String num, int line, String password) {
-    return sendCommandAndGetAnswer(SET_GSM_NUM, line, num, password);
+    String command = String.format(SET_GSM_NUM, getSendId(), num, password);
+    return sendCommandAndGetAnswer(command, line);
   }
 
-  private static String sendCommandAndGetAnswer(String command, int line, String... params) {
-    int sendId = getSendId();
-    StringBuilder commandBuilder = new StringBuilder(command);
-    commandBuilder.append(" ").append(sendId);
-    for (String param : params) {
-      commandBuilder.append(" ").append(param);
-    }
+  private static String sendCommandAndGetAnswer(String command, int line) {
     try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) {
-      clientSocket.send(getSendingPacket(commandBuilder.toString(), getPort(line)));
+      clientSocket.send(getSendingPacket(command, getPort(line)));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      return getAfterWord(String.valueOf(sendId), getAnswerFromPacket(receivingPacket));
+      return getAfterWord(parseSendId(command), getAnswerFromPacket(receivingPacket));
     } catch (Exception e) {
       System.out.println(e.getMessage());
       return ERROR_MSG;
     }
   }
 
+  private static int getSendId() {
+    return (int) (System.currentTimeMillis() % 1e07);
+  }
+
   private static DatagramPacket getSendingPacket(String command, int port) throws UnknownHostException {
     InetAddress IPAddress = InetAddressFactory.getAddress();
     byte[] commandBytes = command.getBytes();
     return new DatagramPacket(commandBytes, commandBytes.length, IPAddress, port);
-  }
-
-  private static int getSendId() {
-    return (int) (System.currentTimeMillis() % 1e07);
   }
 
   public static void listen() {
@@ -117,14 +109,15 @@ public class GsmService {
     }
   }
 
-  private static String getAnswerFromPacket(DatagramPacket receivingPacket){
-    byte[] array = new byte[receivingPacket.getLength()];
-    System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(),array , 0, receivingPacket.getLength());
-    return new String(array);
-  }
   private static DatagramPacket getReceivingPacket() {
     byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
     return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
+  }
+
+  private static String getAnswerFromPacket(DatagramPacket receivingPacket) {
+    byte[] array = new byte[receivingPacket.getLength()];
+    System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(), array, 0, receivingPacket.getLength());
+    return new String(array);
   }
 
   private static void handleReceiveCall(String receivedData, String lineId) throws Exception {
@@ -165,26 +158,18 @@ public class GsmService {
     sendAnswer(answer, lineNum);
   }
 
-  private static int getLineNum(String lineId) throws Exception {
-    return Integer.parseInt(match(NUM_PATTERN, lineId));
-  }
 
   private static String getStringFrom(String start, String text) {
     int indexStart = text.indexOf(start) + start.length();
     return text.substring(indexStart, text.indexOf(END_SYMBOL, indexStart));
   }
 
-  private static String parseSendId(String text) throws Exception {
-    return match(NUM_PATTERN, text);
+  private static int getLineNum(String lineId) throws Exception {
+    return Integer.parseInt(match(NUM_PATTERN, lineId));
   }
 
-  public static String match(Pattern pattern, String text) throws Exception {
-    Matcher matcher = pattern.matcher(text);
-    if (matcher.find()) {
-      return matcher.group();
-    } else {
-      throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s", text, pattern.pattern()));
-    }
+  private static String parseSendId(String text) throws Exception {
+    return match(NUM_PATTERN, text);
   }
 
   private static void sendAnswer(String answer, int lineNum) {
@@ -193,6 +178,15 @@ public class GsmService {
       datagramSocket.send(sendingPacket);
     } catch (Exception e) {
       System.out.println(e.getMessage());
+    }
+  }
+
+  public static String match(Pattern pattern, String text) throws Exception {
+    Matcher matcher = pattern.matcher(text);
+    if (matcher.find()) {
+      return matcher.group();
+    } else {
+      throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s", text, pattern.pattern()));
     }
   }
 
