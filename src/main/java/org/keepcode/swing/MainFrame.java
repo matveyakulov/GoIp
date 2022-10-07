@@ -33,6 +33,12 @@ public class MainFrame extends JFrame {
 
   private static Map<Integer, GsmLine> gsmLines;
 
+  private static JButton sendUssdBtn;
+  private static JButton rebootGoipBtn;
+  private static JButton sendNumInfoBtn;
+  private static JButton rebootLineBtn;
+  private static JButton sendSetNumBtn;
+
   public MainFrame() throws HeadlessException {
     super("Goip");
     Box mainBox = Box.createVerticalBox();
@@ -50,6 +56,7 @@ public class MainFrame extends JFrame {
     setVisible(true);
     add(mainBox);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    changeEnableBtn();
     new Thread(GsmService::listen).start();
     new Thread(() -> {
       while (true) {
@@ -75,6 +82,16 @@ public class MainFrame extends JFrame {
     linesComboGetNumInfo.setModel(new DefaultComboBoxModel<>(lines));
     linesComboSetGsmNum.setModel(new DefaultComboBoxModel<>(lines));
     revalidate();
+    changeEnableBtn();
+  }
+
+  private static void changeEnableBtn() {
+    boolean enable = !sendUssdBtn.isEnabled();
+    sendUssdBtn.setEnabled(enable);
+    rebootGoipBtn.setEnabled(enable);
+    sendNumInfoBtn.setEnabled(enable);
+    rebootLineBtn.setEnabled(enable);
+    sendSetNumBtn.setEnabled(enable);
   }
 
   private String[] createStatusLine(Map<Integer, GsmLine> lineStatus) {
@@ -87,7 +104,7 @@ public class MainFrame extends JFrame {
   }
 
   private Box createUssdCommand() {
-    JButton sendUssdBtn = new JButton("Отправить");
+    sendUssdBtn = new JButton("Отправить");
     JTextField sendUssdValue = new CustomTextField();
     sendUssdBtn.addActionListener(e ->
       new Thread(() -> {
@@ -113,8 +130,8 @@ public class MainFrame extends JFrame {
 
   private Box createRebootCommand() {
     Box box = Box.createHorizontalBox();
-    JButton button = new JButton("Рестарт goip");
-    button.addActionListener(e -> {
+    rebootGoipBtn = new JButton("Рестарт goip");
+    rebootGoipBtn.addActionListener(e -> {
       new Thread(() -> {
         try {
           int line = 1;
@@ -130,13 +147,13 @@ public class MainFrame extends JFrame {
         }
       }).start();
     });
-    box.add(button);
+    box.add(rebootGoipBtn);
     return box;
   }
 
   private Box createNumberInfoCommand() {
-    JButton sendUssdBtn = new JButton("Отправить");
-    sendUssdBtn.addActionListener(e ->
+    sendNumInfoBtn = new JButton("Отправить");
+    sendNumInfoBtn.addActionListener(e ->
       new Thread(() -> {
         if (linesComboGetNumInfo.getSelectedItem() != null) {
           int line = (Integer) linesComboGetNumInfo.getSelectedItem();
@@ -152,13 +169,13 @@ public class MainFrame extends JFrame {
     Box innerBox = Box.createHorizontalBox();
     innerBox.add(new JLabel("Узнать номер на линии:"));
     innerBox.add(linesComboGetNumInfo);
-    innerBox.add(sendUssdBtn);
+    innerBox.add(sendNumInfoBtn);
     return innerBox;
   }
 
   private Box createRebootLineCommand() {
-    JButton sendUssdBtn = new JButton("Отправить");
-    sendUssdBtn.addActionListener(e ->
+    rebootLineBtn = new JButton("Отправить");
+    rebootLineBtn.addActionListener(e ->
       new Thread(() -> {
         if (linesComboRebootLine.getSelectedItem() != null) {
           int line = (Integer) linesComboRebootLine.getSelectedItem();
@@ -174,15 +191,15 @@ public class MainFrame extends JFrame {
     Box innerBox = Box.createHorizontalBox();
     innerBox.add(new JLabel("Перезагрузить линию:"));
     innerBox.add(linesComboRebootLine);
-    innerBox.add(sendUssdBtn);
+    innerBox.add(rebootLineBtn);
     innerBox.add(rebootLineCommandAnswer);
     return innerBox;
   }
 
   private Box createSetGsmNumCommand() {
     JTextField number = new CustomTextField();
-    JButton sendUssdBtn = new JButton("Отправить");
-    sendUssdBtn.addActionListener(e ->
+    sendSetNumBtn = new JButton("Отправить");
+    sendSetNumBtn.addActionListener(e ->
       new Thread(() -> {
         if (validateNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
           int line = (Integer) linesComboSetGsmNum.getSelectedItem();
@@ -201,7 +218,7 @@ public class MainFrame extends JFrame {
     innerBox.add(linesComboSetGsmNum);
     innerBox.add(new JLabel("изменить номер на:"));
     innerBox.add(number);
-    innerBox.add(sendUssdBtn);
+    innerBox.add(sendSetNumBtn);
     innerBox.add(setGsmNumAnswer);
     return innerBox;
   }
