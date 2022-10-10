@@ -9,6 +9,7 @@ public class FileWriter {
     try (BufferedWriter writer = new BufferedWriter(new java.io.FileWriter(fileName, true))) {
       writer.append(msg);
       writer.flush();
+      //todo ты тут так ничего и не поменял
     } catch (Exception e) {
       e.printStackTrace();
     }

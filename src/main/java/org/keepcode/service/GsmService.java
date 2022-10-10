@@ -2,6 +2,7 @@ package org.keepcode.service;
 
 import org.keepcode.domain.GsmLine;
 import org.keepcode.factory.DatagramSocketFactory;
+//todo Следи за импортами
 import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.util.PropUtil;
 
@@ -54,6 +55,7 @@ public class GsmService {
     return sendCommandAndGetAnswer(command, line);
   }
 
+  //todo У тебя везде выше линия стоит первым параметром, а тут шо
   public static String setGsmNum(String num, int line, String password) {
     String command = String.format(SET_GSM_NUM, getSendId(), num, password);
     return sendCommandAndGetAnswer(command, line);
@@ -105,6 +107,7 @@ public class GsmService {
       }
     } catch (Exception e) {
       System.out.println(e.getCause().getMessage());
+      //todo Прям выходим?
       System.exit(-1);
     }
   }
@@ -115,6 +118,7 @@ public class GsmService {
   }
 
   private static String getAnswerFromPacket(DatagramPacket receivingPacket) {
+    //todo Посмотри внимательно на операции, которые тут проводишь
     byte[] array = new byte[receivingPacket.getLength()];
     System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(), array, 0, receivingPacket.getLength());
     return new String(array);
@@ -155,7 +159,7 @@ public class GsmService {
     sendAnswer(answer, lineNum);
   }
 
-
+  //todo Может это не getString назвать надо?
   private static String getStringFrom(String start, String text) {
     int indexStart = text.indexOf(start) + start.length();
     return text.substring(indexStart, text.indexOf(END_SYMBOL, indexStart));
@@ -178,6 +182,7 @@ public class GsmService {
     }
   }
 
+  //todo Над названием подумай
   public static String match(Pattern pattern, String text) throws Exception {
     Matcher matcher = pattern.matcher(text);
     if (matcher.find()) {
@@ -187,6 +192,8 @@ public class GsmService {
     }
   }
 
+  //todo Ты назвал метод "Взять порт" и передаешь ему "порт", хотя по факту кидаешь линию
+  //todo А может это переместить в GsmLine, как думаешь?
   private static int getPort(int port) {
     return (SEND_PORT / 10) * 10 + port;
   }
