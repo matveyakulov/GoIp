@@ -1,5 +1,6 @@
 package org.keepcode.swing;
 
+import org.jetbrains.annotations.NotNull;
 import org.keepcode.domain.GsmLine;
 import org.keepcode.service.GsmService;
 import org.keepcode.validate.Validator;
@@ -77,7 +78,7 @@ public class MainFrame extends JFrame {
     }).start();
   }
 
-  private void updateCheckBoxes(Map<Integer, GsmLine> gsmLines) {
+  private void updateCheckBoxes(@NotNull Map<Integer, GsmLine> gsmLines) {
     if(comboBoxLinesStatus.getItemCount() == 0) {
       comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
     } else {
@@ -94,7 +95,7 @@ public class MainFrame extends JFrame {
     revalidate();
   }
 
-  private void updateLinesStatusIfChanged(String[] statusLine){
+  private void updateLinesStatusIfChanged(@NotNull String[] statusLine){
     ComboBoxModel<String> lineFromModel = comboBoxLinesStatus.getModel();
     for(int i = 0; i < statusLine.length; i++){
       if(!statusLine[i].equals(lineFromModel.getElementAt(i))){
@@ -117,7 +118,8 @@ public class MainFrame extends JFrame {
     sendSetNumBtn.setEnabled(enable);
   }
 
-  private String[] createStatusLine(Map<Integer, GsmLine> lineStatus) {
+  @NotNull
+  private String[] createStatusLine(@NotNull Map<Integer, GsmLine> lineStatus) {
     String[] lines = new String[lineStatus.size()];
     int i = 0;
     for (Integer lineNum : lineStatus.keySet()) {
@@ -126,6 +128,7 @@ public class MainFrame extends JFrame {
     return lines;
   }
 
+  @NotNull
   private Box createUssdCommand() {
     sendUssdBtn = new JButton("Отправить");
     JTextField sendUssdValue = new CustomTextField();
@@ -151,6 +154,7 @@ public class MainFrame extends JFrame {
     return innerBox;
   }
 
+  @NotNull
   private Box createRebootCommand() {
     Box box = Box.createHorizontalBox();
     rebootGoipBtn = new JButton("Рестарт goip");
@@ -172,6 +176,7 @@ public class MainFrame extends JFrame {
     return box;
   }
 
+  @NotNull
   private Box createNumberInfoCommand() {
     sendNumInfoBtn = new JButton("Отправить");
     sendNumInfoBtn.addActionListener(e ->
@@ -194,6 +199,7 @@ public class MainFrame extends JFrame {
     return innerBox;
   }
 
+  @NotNull
   private Box createRebootLineCommand() {
     rebootLineBtn = new JButton("Отправить");
     rebootLineBtn.addActionListener(e ->
@@ -217,6 +223,7 @@ public class MainFrame extends JFrame {
     return innerBox;
   }
 
+  @NotNull
   private Box createSetGsmNumCommand() {
     JTextField number = new CustomTextField();
     sendSetNumBtn = new JButton("Отправить");

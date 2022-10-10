@@ -1,5 +1,6 @@
 package org.keepcode.util;
 
+import org.jetbrains.annotations.NotNull;
 import org.keepcode.Main;
 
 import java.io.IOException;
@@ -19,22 +20,27 @@ public class PropUtil {
     }
   }
 
+  @NotNull
   public static String getHost(){
       return getProp("goip.host");
   }
 
+  @NotNull
   public static Integer getReceivePort() {
     return Integer.parseInt(getProp("goip.receive.port"));
   }
 
+  @NotNull
   public static Integer getDefaultSendPort() {
     return Integer.valueOf(getProp("goip.send.default.port"));
   }
 
+  @NotNull
   public static Integer getSocketTimeout() {
     return Integer.valueOf(getProp("goip.timeout"));
   }
 
+  @NotNull
   private static String getProp(String prop){
     return properties.getProperty(prop);
   }
