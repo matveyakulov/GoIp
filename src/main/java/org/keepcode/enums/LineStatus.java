@@ -1,10 +1,22 @@
 package org.keepcode.enums;
 
+import org.jetbrains.annotations.NotNull;
+
 public enum LineStatus {
 
-  ACTIVE,
+  ACTIVE("Активна"),
 
-  UN_ACTIVE,
+  UN_ACTIVE("Не активна"),
 
-  UNKNOWN
+  UNKNOWN("Неизвестно");
+
+  private final String status;
+
+  LineStatus(@NotNull String status) {
+    this.status = status;
+  }
+
+  public String getStatus() {
+    return status;
+  }
 }

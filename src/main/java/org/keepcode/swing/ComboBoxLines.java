@@ -7,6 +7,6 @@ public class ComboBoxLines<T> extends JComboBox<T> {
 
     public ComboBoxLines(T[] items) {
         super(items);
-        setMaximumSize(new Dimension(100, 50));
+        setMaximumSize(new Dimension(200, 50));
     }
 }
