@@ -9,9 +9,8 @@ public class FileWriter {
     try (BufferedWriter writer = new BufferedWriter(new java.io.FileWriter(FILE_NAME, true))) {
       writer.append(msg);
       writer.flush();
-      //todo ты тут так ничего и не поменял
     } catch (Exception e) {
-      e.printStackTrace();
+      System.out.println("Не удалось записать в файл " + msg);
     }
   }
 }

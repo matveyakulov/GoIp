@@ -14,7 +14,6 @@ public class PropUtil {
     try {
       properties.load(Main.class.getClassLoader().getResourceAsStream(CONFIG_FILE_NAME));
     } catch (IOException e) {
-      //todo И что будет дальше?
       System.out.println("Чтение конфига завершилось с ошибкой " + e.getMessage());
       System.exit(-1);
     }

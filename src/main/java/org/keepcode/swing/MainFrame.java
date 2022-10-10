@@ -67,6 +67,7 @@ public class MainFrame extends JFrame {
           System.out.println(e.getCause().getMessage());
         }
         Map<Integer, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
+
         if (gsmLinesCurrent == null ||
           !gsmLinesCurrent.values().equals(gsmLinesNew.values())) {
           gsmLinesCurrent = gsmLinesNew;
@@ -77,7 +78,11 @@ public class MainFrame extends JFrame {
   }
 
   private void updateCheckBoxes(Map<Integer, GsmLine> gsmLines) {
-    comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
+    if(comboBoxLinesStatus.getItemCount() == 0) {
+      comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
+    } else {
+      updateLinesStatusIfChanged(createStatusLine(gsmLines));
+    }
     lines = gsmLines.keySet().stream().map(Integer::new).toArray(Integer[]::new);
     linesComboRebootLine.setModel(new DefaultComboBoxModel<>(lines));
     linesComboUssd.setModel(new DefaultComboBoxModel<>(lines));
@@ -87,6 +92,20 @@ public class MainFrame extends JFrame {
       changeEnableBtn();
     }
     revalidate();
+  }
+
+  private void updateLinesStatusIfChanged(String[] statusLine){
+    ComboBoxModel<String> lineFromModel = comboBoxLinesStatus.getModel();
+    for(int i = 0; i < statusLine.length; i++){
+      if(!statusLine[i].equals(lineFromModel.getElementAt(i))){
+        comboBoxLinesStatus.insertItemAt(statusLine[i], i);
+      }
+    }
+    if(statusLine.length < comboBoxLinesStatus.getItemCount()){
+      for(int i = statusLine.length; i < comboBoxLinesStatus.getItemCount(); i++){
+        comboBoxLinesStatus.remove(i);
+      }
+    }
   }
 
   private static void changeEnableBtn() {
@@ -101,8 +120,8 @@ public class MainFrame extends JFrame {
   private String[] createStatusLine(Map<Integer, GsmLine> lineStatus) {
     String[] lines = new String[lineStatus.size()];
     int i = 0;
-    for (Integer s : lineStatus.keySet()) {
-      lines[i++] = String.format("%d - %s", s, lineStatus.get(s).getStatus());
+    for (Integer lineNum : lineStatus.keySet()) {
+      lines[i++] = String.format("%d - %s", lineNum, lineStatus.get(lineNum).getStatus().toString());
     }
     return lines;
   }
