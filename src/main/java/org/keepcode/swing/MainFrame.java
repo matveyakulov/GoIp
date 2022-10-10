@@ -137,7 +137,7 @@ public class MainFrame extends JFrame {
     rebootGoipBtn = new JButton("Рестарт goip");
     rebootGoipBtn.addActionListener(e -> {
       new Thread(() -> {
-        if(gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
+        if (gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
           int line = gsmLinesCurrent.keySet().stream().findFirst().get();
           if (gsmLinesCurrent.get(line).getPassword() != null) {
             String answer = GsmService.reboot(line, gsmLinesCurrent.get(line).getPassword());
@@ -205,7 +205,7 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (isValidNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
           int line = (Integer) linesComboSetGsmNum.getSelectedItem();
-          String answer = GsmService.setGsmNum(number.getText(), line, gsmLinesCurrent.get(line).getPassword());
+          String answer = GsmService.setGsmNum(line, number.getText(), gsmLinesCurrent.get(line).getPassword());
           linesComboSetGsmNum.setSelectedIndex(0);
           SwingUtilities.invokeLater(() -> {
             number.setText("");

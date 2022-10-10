@@ -2,12 +2,10 @@ package org.keepcode.service;
 
 import org.keepcode.domain.GsmLine;
 import org.keepcode.factory.DatagramSocketFactory;
-import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.util.PropUtil;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,7 +52,7 @@ public class GsmService {
     return sendCommandAndGetAnswer(command, line);
   }
 
-  public static String setGsmNum(String num, int line, String password) {
+  public static String setGsmNum(int line, String num, String password) {
     String command = String.format(SET_GSM_NUM, getSendId(), num, password);
     return sendCommandAndGetAnswer(command, line);
   }
@@ -156,8 +154,8 @@ public class GsmService {
   }
 
 
-  private static String getStringFrom(String start, String text) {
-    int indexStart = text.indexOf(start) + start.length();
+  private static String getStringFrom(String startWord, String text) {
+    int indexStart = text.indexOf(startWord) + startWord.length();
     return text.substring(indexStart, text.indexOf(END_SYMBOL, indexStart));
   }
 
