@@ -34,7 +34,7 @@ public class GsmService {
   private static final Pattern FIRST_WORD_PATTERN = Pattern.compile("(?<first>^\\w+):");
 
   private static final Pattern KEEP_ALIVE_PARAM_PATTERN = Pattern.compile("id:(?<id>\\w+);.*pass:(?<pass>.+);.*" +
-    "gsm_status:(?<gsmstatus>\\w*);");
+    "gsm_status:(?<gsmStatus>\\w*);");
 
   private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>\\w+);");
 
@@ -173,7 +173,7 @@ public class GsmService {
     if (matcher.find()) {
       String lineId = matcher.group("id");
       String password = matcher.group( "pass");
-      String gsmStatus = matcher.group("gsmstatus");
+      String gsmStatus = matcher.group("gsmStatus");
       int ansStatus = 0;
       if (gsmLineMap.get(lineId) != null && !gsmLineMap.get(lineId).getPassword().equals(password)) {
         ansStatus = -1;

@@ -31,11 +31,6 @@ public class PropUtil {
   }
 
   @NotNull
-  public static Integer getDefaultSendPort() {
-    return Integer.valueOf(getProp("goip.send.default.port"));
-  }
-
-  @NotNull
   public static Integer getSocketTimeout() {
     return Integer.valueOf(getProp("goip.timeout"));
   }
