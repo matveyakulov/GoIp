@@ -38,7 +38,7 @@ public class GsmService {
 
   private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>\\w+);");
 
-  private static final Pattern AFTER_SENDID_PATTERN = Pattern.compile("\\d+ (?<answer>.+)");
+  private static final Pattern AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+ (?<answer>.+)");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
@@ -82,7 +82,7 @@ public class GsmService {
       clientSocket.send(getSendingPacket(command, port));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      return matchPattern(AFTER_SENDID_PATTERN, getAnswerFromPacket(receivingPacket), "answer");
+      return matchPattern(AFTER_SEND_ID_PATTERN, getAnswerFromPacket(receivingPacket), "answer");
     } catch (Exception e) {
       System.out.println(e.getCause().getMessage());
       return ERROR_MSG;
@@ -99,11 +99,6 @@ public class GsmService {
   private static DatagramPacket getReceivingPacket() {
     byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
     return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
-  }
-
-  @NotNull
-  private static String parseSendId(@NotNull String text) throws Exception {
-    return matchPattern(NUMBER_PATTERN, text);
   }
 
   public static void listen() {
@@ -148,6 +143,11 @@ public class GsmService {
   }
 
   @NotNull
+  private static String parseSendId(@NotNull String text) throws Exception {
+    return matchPattern(NUMBER_PATTERN, text);
+  }
+
+  @NotNull
   private static String getNumber(@NotNull String text) throws Exception {
     return matchPattern(PHONE_NUMBER_PATTERN, text);
   }
@@ -169,15 +169,21 @@ public class GsmService {
   }
 
   private static void handleKeepAlive(@NotNull String receivedData, int port) throws Exception {
-    String lineId = matchPattern(KEEP_ALIVE_PARAM_PATTERN, receivedData, "id");
-    String password = matchPattern(KEEP_ALIVE_PARAM_PATTERN, receivedData, "pass");
-    int ansStatus = 0;
-    if (gsmLineMap.get(lineId) != null && !gsmLineMap.get(lineId).getPassword().equals(password)) {
-      ansStatus = -1;
+    Matcher matcher = KEEP_ALIVE_PARAM_PATTERN.matcher(receivedData);
+    if (matcher.find()) {
+      String lineId = matcher.group("id");
+      String password = matcher.group( "pass");
+      String gsmStatus = matcher.group("gsmstatus");
+      int ansStatus = 0;
+      if (gsmLineMap.get(lineId) != null && !gsmLineMap.get(lineId).getPassword().equals(password)) {
+        ansStatus = -1;
+      }
+      gsmLineMap.put(lineId, new GsmLine(port, password, gsmStatus));
+      String answer = String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus);
+      sendAnswer(answer, port);
+    } else {
+      throw new Exception(String.format("Не удалось обработать keepAlive: %s", receivedData));
     }
-    gsmLineMap.put(lineId, new GsmLine(port, password, matchPattern(KEEP_ALIVE_PARAM_PATTERN, receivedData, "gsmstatus")));
-    String answer = String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus);
-    sendAnswer(answer, port);
   }
 
   @NotNull
