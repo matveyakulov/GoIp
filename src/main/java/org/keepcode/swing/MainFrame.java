@@ -32,7 +32,6 @@ public class MainFrame extends JFrame {
 
   private final ComboBoxLines<String> linesComboSetGsmNum = new ComboBoxLines<>(lines);
 
-  //todo  тебя две одинаковые мапы в разных классах, которые отвечают за одно и тоже?
   private static Map<String, GsmLine> gsmLinesCurrent;
 
   private static JButton sendUssdBtn;
@@ -163,8 +162,6 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
           String line = gsmLinesCurrent.keySet().stream().findFirst().get();
-          //todo посмотри еще раз
-          gsmLinesCurrent.get(line);
           String answer = GsmService.reboot(line, gsmLinesCurrent.get(line).getPassword());
           SwingUtilities.invokeLater(() -> {
             rebootCommandAnswer.add(new JLabel(answer));

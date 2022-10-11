@@ -1,6 +1,7 @@
 package org.keepcode.service;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.keepcode.domain.GsmLine;
 import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
@@ -18,7 +19,6 @@ import static org.keepcode.util.CommandStrings.*;
 import static org.keepcode.util.MessageUtil.*;
 import static org.keepcode.writer.FileWriter.write;
 
-//todo методы
 public class GsmService {
 
   private static final int RECEIVE_PORT = PropUtil.getReceivePort();
@@ -38,10 +38,12 @@ public class GsmService {
 
   private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>\\w+);");
 
+  private static final Pattern AFTER_SENDID_PATTERN = Pattern.compile("\\d+ (?<answer>.+)");
+
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
   @NotNull
-  public static String reboot(String lineId, @NotNull String password) {
+  public static String reboot(@NotNull String lineId, @NotNull String password) {
     String command = String.format(SVR_REBOOT_DEV, getSendId(), password);
     return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
   }
@@ -70,28 +72,38 @@ public class GsmService {
     return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
   }
 
+  private static int getSendId() {
+    return (int) (System.currentTimeMillis() % 1e07);
+  }
+
   @NotNull
   private static String sendCommandAndGetAnswer(@NotNull String command, int port) {
     try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) {
       clientSocket.send(getSendingPacket(command, port));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      //todo уйти тут от substring
-      return getAfterWord(parseSendId(command), getAnswerFromPacket(receivingPacket));
+      return matchPattern(AFTER_SENDID_PATTERN, getAnswerFromPacket(receivingPacket), "answer");
     } catch (Exception e) {
       System.out.println(e.getCause().getMessage());
       return ERROR_MSG;
     }
   }
 
-  private static int getSendId() {
-    return (int) (System.currentTimeMillis() % 1e07);
-  }
-
   @NotNull
   private static DatagramPacket getSendingPacket(@NotNull String command, int port) throws UnknownHostException {
     byte[] commandBytes = command.getBytes();
     return new DatagramPacket(commandBytes, commandBytes.length, InetAddressFactory.getAddress(), port);
+  }
+
+  @NotNull
+  private static DatagramPacket getReceivingPacket() {
+    byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
+    return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
+  }
+
+  @NotNull
+  private static String parseSendId(@NotNull String text) throws Exception {
+    return matchPattern(NUMBER_PATTERN, text);
   }
 
   public static void listen() {
@@ -123,15 +135,8 @@ public class GsmService {
   }
 
   @NotNull
-  private static DatagramPacket getReceivingPacket() {
-    byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
-    return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
-  }
-
-  @NotNull
   private static String getAnswerFromPacket(@NotNull DatagramPacket receivingPacket) {
     byte[] array = new byte[receivingPacket.getLength()];
-    //todo все же надо проверить, что тут по факту offset выдает
     System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(), array, 0, receivingPacket.getLength());
     return new String(array);
   }
@@ -147,17 +152,20 @@ public class GsmService {
     return matchPattern(PHONE_NUMBER_PATTERN, text);
   }
 
+  private static void sendAnswer(@NotNull String answer, int port) {
+    try (DatagramSocket datagramSocket = DatagramSocketFactory.getSocket()) {
+      DatagramPacket sendingPacket = getSendingPacket(answer, port);
+      datagramSocket.send(sendingPacket);
+    } catch (Exception e) {
+      System.out.println(e.getCause().getMessage());
+    }
+  }
+
   private static void handleReceiveMsg(@NotNull String receivedData, int receivePort) throws Exception {
     String msg = matchPattern(MSG_PATTERN, receivedData, "msg");
     write(String.format(RECEIVE_SMS_MSG, msg, receivePort));
     String str = String.format(RECEIVE_OK_MSG, parseSendId(receivedData));
-    //todo ему надо отвечать?
     sendAnswer(str, receivePort);
-  }
-
-  @NotNull
-  private static String getAfterWord(String word, @NotNull String text) {
-    return text.substring(text.lastIndexOf(word) + word.length());
   }
 
   private static void handleKeepAlive(@NotNull String receivedData, int port) throws Exception {
@@ -173,40 +181,16 @@ public class GsmService {
   }
 
   @NotNull
-  private static String parseSendId(@NotNull String text) throws Exception {
-    return matchPattern(NUMBER_PATTERN, text);
-  }
-
-  private static void sendAnswer(@NotNull String answer, int port) {
-    try (DatagramSocket datagramSocket = DatagramSocketFactory.getSocket()) {
-      DatagramPacket sendingPacket = getSendingPacket(answer, port);
-      datagramSocket.send(sendingPacket);
-    } catch (Exception e) {
-      System.out.println(e.getCause().getMessage());
-    }
+  public static String matchPattern(@NotNull Pattern pattern, @NotNull String text) throws Exception {
+    return matchPattern(pattern, text, null);
   }
 
   @NotNull
-  public static String matchPattern(@NotNull Pattern pattern, @NotNull String text) throws Exception {
+  public static String matchPattern(@NotNull Pattern pattern, @NotNull String text, @Nullable String group) throws Exception {
     Matcher matcher = pattern.matcher(text);
     if (matcher.find()) {
-      return matcher.group();
+      return group != null? matcher.group(group): matcher.group();
     } else {
-      throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s", text, pattern.pattern()));
-    }
-  }
-
-  //todo шо тут с обработкой?
-  @NotNull
-  public static String matchPattern(@NotNull Pattern pattern, @NotNull String text, @NotNull String group) throws Exception {
-    try {
-      Matcher matcher = pattern.matcher(text);
-      if (matcher.find()) {
-        return matcher.group(group);
-      } else {
-        throw new Exception();
-      }
-    } catch (Exception e) {
       throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s с группой %s", text, pattern.pattern(), group));
     }
   }
