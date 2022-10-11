@@ -22,7 +22,7 @@ public class MainFrame extends JFrame {
 
   private String[] lines = new String[0];
 
-  private final ComboBoxLines<String> comboBoxLinesStatus = new ComboBoxLines<>(new String[0]);
+  private final ComboBoxLines<String> comboBoxLinesStatus = new ComboBoxLines<>(lines);
 
   private final ComboBoxLines<String> linesComboUssd = new ComboBoxLines<>(lines);
 
