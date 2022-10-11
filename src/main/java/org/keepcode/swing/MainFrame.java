@@ -131,10 +131,8 @@ public class MainFrame extends JFrame {
         comboBoxLinesStatus.insertItemAt(statusLine[i], i);
       }
     }
-    if (statusLine.length < comboBoxLinesStatus.getItemCount()) {
-      for (int i = statusLine.length; i < comboBoxLinesStatus.getItemCount(); i++) {
-        comboBoxLinesStatus.remove(i);
-      }
+    while (statusLine.length < comboBoxLinesStatus.getItemCount()) {
+      comboBoxLinesStatus.removeItemAt(statusLine.length);
     }
   }
 
@@ -142,27 +140,25 @@ public class MainFrame extends JFrame {
     ComboBoxModel<String> lineFromModel = linesComboUssd.getModel();
     for (int i = 0; i < lineId.length; i++) {
       if (!lineId[i].equals(lineFromModel.getElementAt(i))) {
-        comboBoxesLinesInsertAt(lineId[i], i);
+        comboBoxesLinesInsertItemAt(lineId[i], i);
       }
     }
-    if (lineId.length < comboBoxLinesStatus.getItemCount()) {
-      for (int i = lineId.length; i < comboBoxLinesStatus.getItemCount(); i++) {
-        comboBoxesLinesRemove(i);
-      }
+    while (lineId.length < linesComboUssd.getItemCount()) {
+      comboBoxesLinesRemoveItemAt(lineId.length);
     }
   }
 
-  private void comboBoxesLinesInsertAt(@NotNull String lineId, int index) {
+  private void comboBoxesLinesInsertItemAt(@NotNull String lineId, int index) {
     JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
     for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
       comboBoxesLine.insertItemAt(lineId, index);
     }
   }
 
-  private void comboBoxesLinesRemove(int index) {
+  private void comboBoxesLinesRemoveItemAt(int index) {
     JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
     for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
-      comboBoxesLine.remove(index);
+      comboBoxesLine.removeItemAt(index);
     }
   }
 

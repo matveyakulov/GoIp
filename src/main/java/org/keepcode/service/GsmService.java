@@ -36,16 +36,16 @@ public class GsmService {
 
   private static final String ERROR_MSG = "ERROR";
 
-  private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("\\+?\\d+");
+  private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("\\+\\d+");
 
-  private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>\\d+)");
+  private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
   private static final Pattern FIRST_WORD_PATTERN = Pattern.compile("(?<first>^\\w+):");
 
   private static final Pattern KEEP_ALIVE_PARAM_PATTERN = Pattern.compile("id:(?<id>\\w+);.*pass:(?<pass>.+);.*" +
     "gsm_status:(?<gsmStatus>\\w*);");
 
-  private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>\\w+);");
+  private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>.+)");
 
   private static final Pattern AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+ (?<answer>.+)");
 
@@ -146,7 +146,9 @@ public class GsmService {
   }
 
   private static void handleReceiveCall(@NotNull String receivedData, int receivePort) throws Exception {
-    write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), receivePort));
+    if (receivedData.contains("INCOMING")) {
+      write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), receivePort));
+    }
     String answer = String.format(STATE_OK_MSG, parseSendId(receivedData));
     sendAnswer(answer, receivePort);
   }
