@@ -3,7 +3,9 @@ package org.keepcode.domain;
 import org.jetbrains.annotations.NotNull;
 import org.keepcode.enums.LineStatus;
 
-import static org.keepcode.enums.LineStatus.*;
+import static org.keepcode.enums.LineStatus.ACTIVE;
+import static org.keepcode.enums.LineStatus.UNKNOWN;
+import static org.keepcode.enums.LineStatus.UN_ACTIVE;
 
 public class GsmLine {
 

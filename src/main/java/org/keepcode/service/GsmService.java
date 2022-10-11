@@ -10,13 +10,22 @@ import org.keepcode.util.PropUtil;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.UnknownHostException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.keepcode.util.CommandStrings.*;
-import static org.keepcode.util.MessageUtil.*;
+import static org.keepcode.util.CommandStrings.GET_GSM_NUM;
+import static org.keepcode.util.CommandStrings.SET_GSM_NUM;
+import static org.keepcode.util.CommandStrings.SVR_REBOOT_DEV;
+import static org.keepcode.util.CommandStrings.SVR_REBOOT_MODULE;
+import static org.keepcode.util.CommandStrings.USSD;
+import static org.keepcode.util.MessageUtil.RECEIVE_CALL_MSG;
+import static org.keepcode.util.MessageUtil.RECEIVE_OK_MSG;
+import static org.keepcode.util.MessageUtil.RECEIVE_SMS_MSG;
+import static org.keepcode.util.MessageUtil.REG_STATUS_MSG;
+import static org.keepcode.util.MessageUtil.STATE_OK_MSG;
 import static org.keepcode.writer.FileWriter.write;
 
 public class GsmService {
@@ -29,7 +38,7 @@ public class GsmService {
 
   private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("\\+?\\d+");
 
-  private static final Pattern NUMBER_PATTERN = Pattern.compile("\\d+");
+  private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>\\d+)");
 
   private static final Pattern FIRST_WORD_PATTERN = Pattern.compile("(?<first>^\\w+):");
 
@@ -84,7 +93,7 @@ public class GsmService {
       clientSocket.receive(receivingPacket);
       return matchPattern(AFTER_SEND_ID_PATTERN, getAnswerFromPacket(receivingPacket), "answer");
     } catch (Exception e) {
-      System.out.println(e.getCause().getMessage());
+      System.out.println("Не удалось отправить команду: " + command);
       return ERROR_MSG;
     }
   }
@@ -131,20 +140,20 @@ public class GsmService {
 
   @NotNull
   private static String getAnswerFromPacket(@NotNull DatagramPacket receivingPacket) {
-    byte[] array = new byte[receivingPacket.getLength()];
-    System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(), array, 0, receivingPacket.getLength());
-    return new String(array);
+    byte[] answerBytes = new byte[receivingPacket.getLength()];
+    System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(), answerBytes, 0, receivingPacket.getLength());
+    return new String(answerBytes);
   }
 
   private static void handleReceiveCall(@NotNull String receivedData, int receivePort) throws Exception {
     write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), receivePort));
-    String str = String.format(STATE_OK_MSG, parseSendId(receivedData));
-    sendAnswer(str, receivePort);
+    String answer = String.format(STATE_OK_MSG, parseSendId(receivedData));
+    sendAnswer(answer, receivePort);
   }
 
   @NotNull
   private static String parseSendId(@NotNull String text) throws Exception {
-    return matchPattern(NUMBER_PATTERN, text);
+    return matchPattern(SEND_ID_PATTERN, text, "sendId");
   }
 
   @NotNull
@@ -157,22 +166,22 @@ public class GsmService {
       DatagramPacket sendingPacket = getSendingPacket(answer, port);
       datagramSocket.send(sendingPacket);
     } catch (Exception e) {
-      System.out.println(e.getCause().getMessage());
+      System.out.println("Не удалось отправить ответ: " + answer);
     }
   }
 
   private static void handleReceiveMsg(@NotNull String receivedData, int receivePort) throws Exception {
     String msg = matchPattern(MSG_PATTERN, receivedData, "msg");
     write(String.format(RECEIVE_SMS_MSG, msg, receivePort));
-    String str = String.format(RECEIVE_OK_MSG, parseSendId(receivedData));
-    sendAnswer(str, receivePort);
+    String answer = String.format(RECEIVE_OK_MSG, parseSendId(receivedData));
+    sendAnswer(answer, receivePort);
   }
 
   private static void handleKeepAlive(@NotNull String receivedData, int port) throws Exception {
     Matcher matcher = KEEP_ALIVE_PARAM_PATTERN.matcher(receivedData);
     if (matcher.find()) {
       String lineId = matcher.group("id");
-      String password = matcher.group( "pass");
+      String password = matcher.group("pass");
       String gsmStatus = matcher.group("gsmStatus");
       int ansStatus = 0;
       if (gsmLineMap.get(lineId) != null && !gsmLineMap.get(lineId).getPassword().equals(password)) {
@@ -195,14 +204,15 @@ public class GsmService {
   public static String matchPattern(@NotNull Pattern pattern, @NotNull String text, @Nullable String group) throws Exception {
     Matcher matcher = pattern.matcher(text);
     if (matcher.find()) {
-      return group != null? matcher.group(group): matcher.group();
-    } else {
-      throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s с группой %s", text, pattern.pattern(), group));
+      return group != null ? matcher.group(group) : matcher.group();
     }
+    throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s с группой %s", text, pattern.pattern(), group));
   }
 
   @NotNull
   public static Map<String, GsmLine> getGsmLineMap() {
-    return gsmLineMap;
+    Map<String, GsmLine> gsmLineTmp = new HashMap<>(gsmLineMap);
+    gsmLineMap.clear();
+    return gsmLineTmp;
   }
 }

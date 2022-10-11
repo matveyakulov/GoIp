@@ -56,7 +56,7 @@ public class MainFrame extends JFrame {
     setVisible(true);
     add(mainBox);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    changeEnableBtn(!gsmLinesCurrent.isEmpty());
+    changeEnableBtn(false);
     new Thread(GsmService::listen).start();
     new Thread(() -> {
       while (true) {
@@ -80,7 +80,7 @@ public class MainFrame extends JFrame {
     String[] linesId = gsmLines.keySet().toArray(new String[0]);
     if (comboBoxLinesStatus.getItemCount() == 0) {
       comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
-      comboBoxesLinesSetModel(new DefaultComboBoxModel<>(linesId));
+      comboBoxesLinesSetModel(linesId);
     } else {
       updateLinesStatusIfChanged(createStatusLine(gsmLines));
       updateLinesIfChanged(linesId);
@@ -112,10 +112,10 @@ public class MainFrame extends JFrame {
     return new JButton[]{sendUssdBtn, rebootLineBtn, rebootGoipBtn, sendNumInfoBtn, sendSetNumBtn};
   }
 
-  private void comboBoxesLinesSetModel(@NotNull DefaultComboBoxModel<String> linesId) {
+  private void comboBoxesLinesSetModel(@NotNull String[] linesId) {
     JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
     for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
-      comboBoxesLine.setModel(linesId);
+      comboBoxesLine.setModel(new DefaultComboBoxModel<>(linesId));
     }
   }
 

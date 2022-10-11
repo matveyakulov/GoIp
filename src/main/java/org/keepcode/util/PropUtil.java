@@ -21,8 +21,8 @@ public class PropUtil {
   }
 
   @NotNull
-  public static String getHost(){
-      return getProp("goip.host");
+  public static String getHost() {
+    return getProp("goip.host");
   }
 
   @NotNull
@@ -36,7 +36,7 @@ public class PropUtil {
   }
 
   @NotNull
-  private static String getProp(String prop){
+  private static String getProp(String prop) {
     return properties.getProperty(prop);
   }
 }
