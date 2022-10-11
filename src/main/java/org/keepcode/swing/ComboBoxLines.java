@@ -3,10 +3,10 @@ package org.keepcode.swing;
 import javax.swing.*;
 import java.awt.*;
 
-public class ComboBoxLines<T> extends JComboBox<T> {
+public class ComboBoxLines extends JComboBox<String> {
 
-    public ComboBoxLines(T[] items) {
-        super(items);
-        setMaximumSize(new Dimension(200, 50));
+    public ComboBoxLines() {
+        super(new String[0]);
+        setMaximumSize(new Dimension(170, 50));
     }
 }

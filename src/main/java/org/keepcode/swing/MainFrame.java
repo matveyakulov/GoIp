@@ -20,17 +20,15 @@ public class MainFrame extends JFrame {
 
   private final Box setGsmNumAnswer = Box.createHorizontalBox();
 
-  private String[] lines = new String[0];
+  private final ComboBoxLines comboBoxLinesStatus = new ComboBoxLines();
 
-  private final ComboBoxLines<String> comboBoxLinesStatus = new ComboBoxLines<>(lines);
+  private final ComboBoxLines linesComboUssd = new ComboBoxLines();
 
-  private final ComboBoxLines<String> linesComboUssd = new ComboBoxLines<>(lines);
+  private final ComboBoxLines linesComboGetNumInfo = new ComboBoxLines();
 
-  private final ComboBoxLines<String> linesComboGetNumInfo = new ComboBoxLines<>(lines);
+  private final ComboBoxLines linesComboRebootLine = new ComboBoxLines();
 
-  private final ComboBoxLines<String> linesComboRebootLine = new ComboBoxLines<>(lines);
-
-  private final ComboBoxLines<String> linesComboSetGsmNum = new ComboBoxLines<>(lines);
+  private final ComboBoxLines linesComboSetGsmNum = new ComboBoxLines();
 
   private static Map<String, GsmLine> gsmLinesCurrent;
 
@@ -43,7 +41,7 @@ public class MainFrame extends JFrame {
   public MainFrame() throws HeadlessException {
     super("Goip");
     Box mainBox = Box.createVerticalBox();
-    setSize(500, 500);
+    setSize(700, 500);
     mainBox.add(createUssdCommand());
     mainBox.add(sendUssdAnswer);
     mainBox.add(createRebootCommand());
@@ -58,14 +56,14 @@ public class MainFrame extends JFrame {
     setVisible(true);
     add(mainBox);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    changeEnableBtn();
+    changeEnableBtn(!gsmLinesCurrent.isEmpty());
     new Thread(GsmService::listen).start();
     new Thread(() -> {
       while (true) {
         try {
           Thread.sleep(35 * 1000);
         } catch (InterruptedException e) {  // подождать не удалось - берем что есть
-          System.out.println(e.getCause().getMessage());
+          System.out.println("Поток не смог остановиться");
         }
         Map<String, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
 
@@ -79,43 +77,16 @@ public class MainFrame extends JFrame {
   }
 
   private void updateCheckBoxes(@NotNull Map<String, GsmLine> gsmLines) {
-    if(comboBoxLinesStatus.getItemCount() == 0) {
+    String[] linesId = gsmLines.keySet().toArray(new String[0]);
+    if (comboBoxLinesStatus.getItemCount() == 0) {
       comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
+      comboBoxesLinesSetModel(new DefaultComboBoxModel<>(linesId));
     } else {
       updateLinesStatusIfChanged(createStatusLine(gsmLines));
+      updateLinesIfChanged(linesId);
     }
-    lines = gsmLines.keySet().toArray(new String[0]);
-    linesComboRebootLine.setModel(new DefaultComboBoxModel<>(lines));
-    linesComboUssd.setModel(new DefaultComboBoxModel<>(lines));
-    linesComboGetNumInfo.setModel(new DefaultComboBoxModel<>(lines));
-    linesComboSetGsmNum.setModel(new DefaultComboBoxModel<>(lines));
-    if (!gsmLines.isEmpty()) {
-      changeEnableBtn();
-    }
+    changeEnableBtn(!gsmLines.isEmpty());
     revalidate();
-  }
-
-  private void updateLinesStatusIfChanged(@NotNull String[] statusLine){
-    ComboBoxModel<String> lineFromModel = comboBoxLinesStatus.getModel();
-    for(int i = 0; i < statusLine.length; i++){
-      if(!statusLine[i].equals(lineFromModel.getElementAt(i))){
-        comboBoxLinesStatus.insertItemAt(statusLine[i], i);
-      }
-    }
-    if(statusLine.length < comboBoxLinesStatus.getItemCount()){
-      for(int i = statusLine.length; i < comboBoxLinesStatus.getItemCount(); i++){
-        comboBoxLinesStatus.remove(i);
-      }
-    }
-  }
-
-  private static void changeEnableBtn() {
-    boolean enable = !sendUssdBtn.isEnabled();
-    sendUssdBtn.setEnabled(enable);
-    rebootGoipBtn.setEnabled(enable);
-    sendNumInfoBtn.setEnabled(enable);
-    rebootLineBtn.setEnabled(enable);
-    sendSetNumBtn.setEnabled(enable);
   }
 
   @NotNull
@@ -126,6 +97,73 @@ public class MainFrame extends JFrame {
       lines[i++] = String.format("%s - %s", lineId, lineStatus.get(lineId).getStatus().getStatus());
     }
     return lines;
+  }
+
+  private void changeEnableBtn(boolean enable) {
+    if (enable != sendUssdBtn.isEnabled()) {
+      for (JButton button : getAllButtons()) {
+        button.setEnabled(enable);
+      }
+    }
+  }
+
+  @NotNull
+  private JButton[] getAllButtons() {
+    return new JButton[]{sendUssdBtn, rebootLineBtn, rebootGoipBtn, sendNumInfoBtn, sendSetNumBtn};
+  }
+
+  private void comboBoxesLinesSetModel(@NotNull DefaultComboBoxModel<String> linesId) {
+    JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
+    for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
+      comboBoxesLine.setModel(linesId);
+    }
+  }
+
+  @NotNull
+  private JComboBox<String>[] getComboBoxesLines() {
+    return new ComboBoxLines[]{linesComboGetNumInfo, linesComboRebootLine, linesComboUssd, linesComboSetGsmNum};
+  }
+
+  private void updateLinesStatusIfChanged(@NotNull String[] statusLine) {
+    ComboBoxModel<String> lineFromModel = comboBoxLinesStatus.getModel();
+    for (int i = 0; i < statusLine.length; i++) {
+      if (!statusLine[i].equals(lineFromModel.getElementAt(i))) {
+        comboBoxLinesStatus.insertItemAt(statusLine[i], i);
+      }
+    }
+    if (statusLine.length < comboBoxLinesStatus.getItemCount()) {
+      for (int i = statusLine.length; i < comboBoxLinesStatus.getItemCount(); i++) {
+        comboBoxLinesStatus.remove(i);
+      }
+    }
+  }
+
+  private void updateLinesIfChanged(@NotNull String[] lineId) {
+    ComboBoxModel<String> lineFromModel = linesComboUssd.getModel();
+    for (int i = 0; i < lineId.length; i++) {
+      if (!lineId[i].equals(lineFromModel.getElementAt(i))) {
+        comboBoxesLinesInsertAt(lineId[i], i);
+      }
+    }
+    if (lineId.length < comboBoxLinesStatus.getItemCount()) {
+      for (int i = lineId.length; i < comboBoxLinesStatus.getItemCount(); i++) {
+        comboBoxesLinesRemove(i);
+      }
+    }
+  }
+
+  private void comboBoxesLinesInsertAt(@NotNull String lineId, int index) {
+    JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
+    for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
+      comboBoxesLine.insertItemAt(lineId, index);
+    }
+  }
+
+  private void comboBoxesLinesRemove(int index) {
+    JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
+    for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
+      comboBoxesLine.remove(index);
+    }
   }
 
   @NotNull
