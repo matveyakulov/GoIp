@@ -18,6 +18,7 @@ import static org.keepcode.util.CommandStrings.*;
 import static org.keepcode.util.MessageUtil.*;
 import static org.keepcode.writer.FileWriter.write;
 
+//todo методы
 public class GsmService {
 
   private static final int RECEIVE_PORT = PropUtil.getReceivePort();
@@ -75,6 +76,7 @@ public class GsmService {
       clientSocket.send(getSendingPacket(command, port));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
+      //todo уйти тут от substring
       return getAfterWord(parseSendId(command), getAnswerFromPacket(receivingPacket));
     } catch (Exception e) {
       System.out.println(e.getCause().getMessage());
@@ -129,6 +131,7 @@ public class GsmService {
   @NotNull
   private static String getAnswerFromPacket(@NotNull DatagramPacket receivingPacket) {
     byte[] array = new byte[receivingPacket.getLength()];
+    //todo все же надо проверить, что тут по факту offset выдает
     System.arraycopy(receivingPacket.getData(), receivingPacket.getOffset(), array, 0, receivingPacket.getLength());
     return new String(array);
   }
@@ -148,6 +151,7 @@ public class GsmService {
     String msg = matchPattern(MSG_PATTERN, receivedData, "msg");
     write(String.format(RECEIVE_SMS_MSG, msg, receivePort));
     String str = String.format(RECEIVE_OK_MSG, parseSendId(receivedData));
+    //todo ему надо отвечать?
     sendAnswer(str, receivePort);
   }
 
@@ -192,6 +196,7 @@ public class GsmService {
     }
   }
 
+  //todo шо тут с обработкой?
   @NotNull
   public static String matchPattern(@NotNull Pattern pattern, @NotNull String text, @NotNull String group) throws Exception {
     try {
