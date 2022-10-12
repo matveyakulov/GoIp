@@ -6,17 +6,24 @@ import org.keepcode.domain.GsmLine;
 import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.util.PropUtil;
+import org.keepcode.validate.Validator;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.keepcode.util.CommandStrings.DONE;
 import static org.keepcode.util.CommandStrings.GET_GSM_NUM;
+import static org.keepcode.util.CommandStrings.MSG;
+import static org.keepcode.util.CommandStrings.PASSWORD;
+import static org.keepcode.util.CommandStrings.SEND;
 import static org.keepcode.util.CommandStrings.SET_GSM_NUM;
 import static org.keepcode.util.CommandStrings.SVR_REBOOT_DEV;
 import static org.keepcode.util.CommandStrings.SVR_REBOOT_MODULE;
@@ -40,58 +47,138 @@ public class GsmService {
 
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
-  private static final Pattern FIRST_WORD_PATTERN = Pattern.compile("(?<first>^\\w+):");
+  private static final Pattern FIRST_WORD_PATTERN = Pattern.compile("(?<first>^\\w+)");
 
   private static final Pattern KEEP_ALIVE_PARAM_PATTERN = Pattern.compile("id:(?<id>\\w+);.*pass:(?<pass>.+);.*" +
     "gsm_status:(?<gsmStatus>\\w*);");
 
   private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>.+)");
 
-  private static final Pattern AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+ (?<answer>.+)");
+  private static final Pattern AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+\\s?(?<answer>.*)");
+
+  private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.* (?<errorMsg>.+)$");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
+
+  private static int currentSendId = 1;
 
   @NotNull
   public static String reboot(@NotNull String lineId, @NotNull String password) {
     String command = String.format(SVR_REBOOT_DEV, getSendId(), password);
-    return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
+    return sendCommandAndGetInfoAfterSendId(command, gsmLineMap.get(lineId).getPort());
   }
 
   @NotNull
   public static String numberInfo(@NotNull String lineId, @NotNull String password) {
     String command = String.format(GET_GSM_NUM, getSendId(), password);
-    return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
+    return sendCommandAndGetInfoAfterSendId(command, gsmLineMap.get(lineId).getPort());
   }
 
   @NotNull
   public static String lineReboot(@NotNull String lineId, @NotNull String password) {
     String command = String.format(SVR_REBOOT_MODULE, getSendId(), password);
-    return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
+    return sendCommandAndGetInfoAfterSendId(command, gsmLineMap.get(lineId).getPort());
   }
 
   @NotNull
   public static String sendUssd(@NotNull String lineId, @NotNull String ussd, @NotNull String password) {
     String command = String.format(USSD, getSendId(), password, ussd);
-    return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
+    return sendCommandAndGetInfoAfterSendId(command, gsmLineMap.get(lineId).getPort());
   }
 
   @NotNull
   public static String setGsmNum(@NotNull String lineId, @NotNull String num, @NotNull String password) {
     String command = String.format(SET_GSM_NUM, getSendId(), num, password);
-    return sendCommandAndGetAnswer(command, gsmLineMap.get(lineId).getPort());
+    return sendCommandAndGetInfoAfterSendId(command, gsmLineMap.get(lineId).getPort());
   }
 
-  private static int getSendId() {
-    return (int) (System.currentTimeMillis() % 1e07);
+  synchronized private static int getSendId() {
+    return currentSendId++;
   }
 
   @NotNull
-  private static String sendCommandAndGetAnswer(@NotNull String command, int port) {
+  public static String sendCommandAndGetInfoAfterSendId(@NotNull String command, int port) {
+    String answer = sendCommandAndGetFullAnswer(command, port);
+    if (answer.equals(ERROR_MSG)) {
+      return answer;
+    }
+    try {
+      return matchPattern(AFTER_SEND_ID_PATTERN, answer, "answer");
+    } catch (Exception e) {
+      System.out.println("Не удалось обработать ответ: " + answer);
+      return ERROR_MSG;
+    }
+  }
+
+  @NotNull
+  public static String sendCommandAndGetFullAnswer(@NotNull String command, int port) {
     try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) {
+      return sendCommandAndGetFullAnswer(clientSocket, command, port);
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
+      return ERROR_MSG;
+    }
+  }
+
+  public static String sendSms(@NotNull String lineId, @NotNull String[] phonesFromTextField, @NotNull String message) {
+    if (message.getBytes().length > 3000) {
+      return "Сообщение не должно превышать 3к символов";
+    }
+    StringBuilder responseBuilder = new StringBuilder();
+    List<String> validPhones = new ArrayList<>();
+    for (String phone : phonesFromTextField) {
+      if (Validator.isValidNum(phone)) {
+        validPhones.add(phone);
+      } else {
+        responseBuilder.append(String.format("Номер: %s не прошел валидацию", phone));
+      }
+    }
+    int port = gsmLineMap.get(lineId).getPort();
+    int sendId = getSendId();
+    try (DatagramSocket datagramSocket = DatagramSocketFactory.getSocket()) {
+      String command = String.format(MSG, sendId, message.length(), message);
+      String answer = sendCommandAndGetFullAnswer(datagramSocket, command, port);
+      if (answer.contains("ERROR")) {
+        String msg = matchPattern(ERROR_PATTERN, answer, "errorMsg");
+        responseBuilder.append(String.format("Выполнение команды %s завершилось с ошибкой %s%n", command, msg));
+        return responseBuilder.toString();
+      }
+      command = String.format(PASSWORD, sendId, gsmLineMap.get(lineId).getPassword());
+      answer = sendCommandAndGetFullAnswer(datagramSocket, command, port);
+      if (answer.contains("ERROR")) {
+        responseBuilder.append(String.format("Выполнение команды %s завершилось с ошибкой: неверный пароль%n", command));
+        return responseBuilder.toString();
+      }
+      for (int i = 0; i < validPhones.size(); i++) {
+        command = String.format(SEND, sendId, i + 1, validPhones.get(i));
+        String sendAnswer = sendCommandAndGetFullAnswer(datagramSocket, command, port);
+        if (sendAnswer.contains("WAIT")) {
+          DatagramPacket receivingPacket = getReceivingPacket();
+          datagramSocket.receive(receivingPacket);
+          sendAnswer = getAnswerFromPacket(receivingPacket);
+        }
+        if (sendAnswer.contains("ERROR")) {
+          String msg = matchPattern(ERROR_PATTERN, sendAnswer, "errorMsg");
+          responseBuilder.append(String.format("Выполнение команды %s завершилось с ошибкой %s%n", command, msg));
+        } else {
+          responseBuilder.append(String.format("На номер %s смс успешно отправлено\n", validPhones.get(i)));
+        }
+      }
+      command = String.format(DONE, sendId);
+      sendCommandAndGetFullAnswer(command, port);
+      return responseBuilder.toString();
+    } catch (Exception e) {
+      responseBuilder.append(String.format("Все закончилось с ошибкой: %s", e.getMessage()));
+      return responseBuilder.toString();
+    }
+  }
+
+  private static String sendCommandAndGetFullAnswer(DatagramSocket clientSocket, String command, int port) {
+    try {
       clientSocket.send(getSendingPacket(command, port));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
-      return matchPattern(AFTER_SEND_ID_PATTERN, getAnswerFromPacket(receivingPacket), "answer");
+      return getAnswerFromPacket(receivingPacket);
     } catch (Exception e) {
       System.out.println("Не удалось отправить команду: " + command);
       return ERROR_MSG;
@@ -127,6 +214,9 @@ public class GsmService {
               break;
             case "STATE":
               handleReceiveCall(receivedData, receivingPacket.getPort());
+              break;
+            default:
+              System.out.println("Не обработан запрос: " + receivedData);
           }
         } catch (Exception e) {
           System.out.println(e.getMessage());

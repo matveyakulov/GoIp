@@ -18,7 +18,9 @@ public class MainFrame extends JFrame {
   private final Box rebootCommandAnswer = Box.createHorizontalBox();
   private final Box rebootLineCommandAnswer = Box.createHorizontalBox();
 
-  private final Box setGsmNumAnswer = Box.createHorizontalBox();
+  private final Box setGsmNumCommandAnswer = Box.createHorizontalBox();
+
+  private final Box sendSmsCommandAnswer = Box.createHorizontalBox();
 
   private final ComboBoxLines comboBoxLinesStatus = new ComboBoxLines();
 
@@ -30,13 +32,17 @@ public class MainFrame extends JFrame {
 
   private final ComboBoxLines linesComboSetGsmNum = new ComboBoxLines();
 
+  private final ComboBoxLines linesComboSendSms = new ComboBoxLines();
+
   private static Map<String, GsmLine> gsmLinesCurrent;
 
   private static JButton sendUssdBtn;
-  private static JButton rebootGoipBtn;
+  private static JButton rebootGoIpBtn;
   private static JButton sendNumInfoBtn;
   private static JButton rebootLineBtn;
   private static JButton sendSetNumBtn;
+
+  private static JButton sendSmsBtn;
 
   public MainFrame() throws HeadlessException {
     super("Goip");
@@ -51,13 +57,17 @@ public class MainFrame extends JFrame {
     mainBox.add(createRebootLineCommand());
     mainBox.add(rebootLineCommandAnswer);
     mainBox.add(createSetGsmNumCommand());
-    mainBox.add(setGsmNumAnswer);
+    mainBox.add(setGsmNumCommandAnswer);
+    mainBox.add(createSendSmsCommand());
+    mainBox.add(sendSmsCommandAnswer);
     mainBox.add(comboBoxLinesStatus);
     setVisible(true);
     add(mainBox);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     changeEnableBtn(false);
-    new Thread(GsmService::listen).start();
+    Thread listenThread = new Thread(GsmService::listen);
+    listenThread.setDaemon(true);
+    listenThread.start();
     new Thread(() -> {
       while (true) {
         try {
@@ -109,7 +119,7 @@ public class MainFrame extends JFrame {
 
   @NotNull
   private JButton[] getAllButtons() {
-    return new JButton[]{sendUssdBtn, rebootLineBtn, rebootGoipBtn, sendNumInfoBtn, sendSetNumBtn};
+    return new JButton[]{sendUssdBtn, rebootLineBtn, rebootGoIpBtn, sendNumInfoBtn, sendSetNumBtn, sendSmsBtn};
   }
 
   private void comboBoxesLinesSetModel(@NotNull String[] linesId) {
@@ -121,7 +131,7 @@ public class MainFrame extends JFrame {
 
   @NotNull
   private JComboBox<String>[] getComboBoxesLines() {
-    return new ComboBoxLines[]{linesComboGetNumInfo, linesComboRebootLine, linesComboUssd, linesComboSetGsmNum};
+    return new ComboBoxLines[]{linesComboGetNumInfo, linesComboRebootLine, linesComboUssd, linesComboSetGsmNum, linesComboSendSms};
   }
 
   private void updateLinesStatusIfChanged(@NotNull String[] statusLine) {
@@ -165,23 +175,23 @@ public class MainFrame extends JFrame {
   @NotNull
   private Box createUssdCommand() {
     sendUssdBtn = new JButton("Отправить");
-    JTextField sendUssdValue = new CustomTextField();
+    JTextField ussdValue = new CustomTextField();
     sendUssdBtn.addActionListener(e ->
       new Thread(() -> {
-        if (Validator.isValidUssd(sendUssdValue.getText()) && linesComboUssd.getSelectedItem() != null) {
-          String lineId = (String) linesComboUssd.getSelectedItem();
-          String response = GsmService.sendUssd(lineId, sendUssdValue.getText(), gsmLinesCurrent.get(lineId).getPassword());
+        if (Validator.isValidUssd(ussdValue.getText()) && linesComboUssd.getSelectedItem() != null) {
+          String lineId = linesComboUssd.getSelectedItem();
+          String response = GsmService.sendUssd(lineId, ussdValue.getText(), gsmLinesCurrent.get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             sendUssdAnswer.add(new JLabel(response));
             linesComboUssd.setSelectedIndex(0);
-            sendUssdValue.setText("");
+            ussdValue.setText("");
             sendUssdAnswer.revalidate();
           });
         }
       }).start());
     Box innerBox = Box.createHorizontalBox();
     innerBox.add(new JLabel("Отправить ussd:"));
-    innerBox.add(sendUssdValue);
+    innerBox.add(ussdValue);
     innerBox.add(new JLabel("на линию:"));
     innerBox.add(linesComboUssd);
     innerBox.add(sendUssdBtn);
@@ -191,8 +201,8 @@ public class MainFrame extends JFrame {
   @NotNull
   private Box createRebootCommand() {
     Box box = Box.createHorizontalBox();
-    rebootGoipBtn = new JButton("Рестарт goip");
-    rebootGoipBtn.addActionListener(e -> {
+    rebootGoIpBtn = new JButton("Рестарт goip");
+    rebootGoIpBtn.addActionListener(e -> {
       new Thread(() -> {
         if (gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
           String line = gsmLinesCurrent.keySet().stream().findFirst().get();
@@ -204,7 +214,7 @@ public class MainFrame extends JFrame {
         }
       }).start();
     });
-    box.add(rebootGoipBtn);
+    box.add(rebootGoIpBtn);
     return box;
   }
 
@@ -214,7 +224,7 @@ public class MainFrame extends JFrame {
     sendNumInfoBtn.addActionListener(e ->
       new Thread(() -> {
         if (linesComboGetNumInfo.getSelectedItem() != null) {
-          String lineId = (String) linesComboGetNumInfo.getSelectedItem();
+          String lineId = linesComboGetNumInfo.getSelectedItem();
           String response = GsmService.numberInfo(lineId, gsmLinesCurrent.get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             numberInfoAnswer.add(new JLabel(response));
@@ -237,7 +247,7 @@ public class MainFrame extends JFrame {
     rebootLineBtn.addActionListener(e ->
       new Thread(() -> {
         if (linesComboRebootLine.getSelectedItem() != null) {
-          String lineId = (String) linesComboRebootLine.getSelectedItem();
+          String lineId = linesComboRebootLine.getSelectedItem();
           String answer = GsmService.lineReboot(lineId, gsmLinesCurrent.get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             linesComboRebootLine.setSelectedIndex(0);
@@ -262,13 +272,13 @@ public class MainFrame extends JFrame {
     sendSetNumBtn.addActionListener(e ->
       new Thread(() -> {
         if (isValidNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
-          String lineId = (String) linesComboSetGsmNum.getSelectedItem();
+          String lineId = linesComboSetGsmNum.getSelectedItem();
           String answer = GsmService.setGsmNum(lineId, number.getText(), gsmLinesCurrent.get(lineId).getPassword());
           linesComboSetGsmNum.setSelectedIndex(0);
           SwingUtilities.invokeLater(() -> {
             number.setText("");
-            setGsmNumAnswer.add(new JLabel(answer));
-            setGsmNumAnswer.revalidate();
+            setGsmNumCommandAnswer.add(new JLabel(answer));
+            setGsmNumCommandAnswer.revalidate();
           });
         }
       }).start()
@@ -279,6 +289,37 @@ public class MainFrame extends JFrame {
     innerBox.add(new JLabel("изменить номер на:"));
     innerBox.add(number);
     innerBox.add(sendSetNumBtn);
+    return innerBox;
+  }
+
+  @NotNull
+  private Box createSendSmsCommand() {
+    sendSmsBtn = new JButton("Отправить");
+    JTextField smsTextField = new CustomTextField();
+    JTextField phonesTextField = new CustomTextField();
+    sendSmsBtn.addActionListener(e ->
+      new Thread(() -> {
+        String[] phonesFromTextField = phonesTextField.getText().split("\\s");
+        if (linesComboSendSms.getSelectedItem() != null) {
+          String lineId = linesComboSendSms.getSelectedItem();
+          String response = GsmService.sendSms(lineId, phonesFromTextField, smsTextField.getText());
+          SwingUtilities.invokeLater(() -> {
+            sendSmsCommandAnswer.add(new JLabel(response));
+            linesComboUssd.setSelectedIndex(0);
+            smsTextField.setText("");
+            phonesTextField.setText("");
+            sendUssdAnswer.revalidate();
+          });
+        }
+      }).start());
+    Box innerBox = Box.createHorizontalBox();
+    innerBox.add(new JLabel("Отправить sms:"));
+    innerBox.add(smsTextField);
+    innerBox.add(new JLabel("c линии:"));
+    innerBox.add(linesComboSendSms);
+    innerBox.add(new JLabel("на номера(через пробел):"));
+    innerBox.add(phonesTextField);
+    innerBox.add(sendSmsBtn);
     return innerBox;
   }
 }

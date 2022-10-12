@@ -7,4 +7,8 @@ public class CommandStrings {
   public static final String SVR_REBOOT_MODULE = "svr_reboot_module %d %s";
   public static final String USSD = "USSD %d %s %s";
   public static final String SET_GSM_NUM = "set_gsm_num %d %s %s";
+  public static final String MSG = "MSG %d %d %s\n";
+  public static final String PASSWORD = "PASSWORD %d %s\n";
+  public static final String SEND = "SEND %d %d %s\n";
+  public static final String DONE = "DONE %d\n";
 }
