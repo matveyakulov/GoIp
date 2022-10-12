@@ -98,25 +98,19 @@ public class GsmService {
 
   @NotNull
   public static String sendCommandAndGetInfoAfterSendId(@NotNull String command, int port) {
-    String answer = sendCommandAndGetFullAnswer(command, port);
-    if (answer.equals(ERROR_MSG)) {
-      return answer;
-    }
     try {
+      String answer = sendCommandAndGetFullAnswer(command, port);
       return matchPattern(AFTER_SEND_ID_PATTERN, answer, "answer");
     } catch (Exception e) {
-      System.out.println("Не удалось обработать ответ: " + answer);
+      System.out.println("Не удалось обработать ответ: " + e.getMessage());
       return ERROR_MSG;
     }
   }
 
   @NotNull
-  public static String sendCommandAndGetFullAnswer(@NotNull String command, int port) {
+  public static String sendCommandAndGetFullAnswer(@NotNull String command, int port) throws Exception {
     try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) {
       return sendCommandAndGetFullAnswer(clientSocket, command, port);
-    } catch (Exception e) {
-      System.out.println(e.getMessage());
-      return ERROR_MSG;
     }
   }
 
@@ -173,15 +167,15 @@ public class GsmService {
     }
   }
 
-  private static String sendCommandAndGetFullAnswer(DatagramSocket clientSocket, String command, int port) {
+  @NotNull
+  private static String sendCommandAndGetFullAnswer(@NotNull DatagramSocket clientSocket, @NotNull String command, int port) throws Exception {
     try {
       clientSocket.send(getSendingPacket(command, port));
       DatagramPacket receivingPacket = getReceivingPacket();
       clientSocket.receive(receivingPacket);
       return getAnswerFromPacket(receivingPacket);
     } catch (Exception e) {
-      System.out.println("Не удалось отправить команду: " + command);
-      return ERROR_MSG;
+      throw new Exception("Не удалось отправить команду: " + command);
     }
   }
 
