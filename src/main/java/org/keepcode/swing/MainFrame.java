@@ -76,9 +76,7 @@ public class MainFrame extends JFrame {
         }
         try {
           Map<String, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
-          if (gsmLinesCurrent == null ||
-            !gsmLinesCurrent.keySet().equals(gsmLinesNew.keySet()) ||
-            !gsmLinesCurrent.values().equals(gsmLinesNew.values())) {
+          if (gsmLinesCurrent == null || !gsmLinesCurrent.equals(gsmLinesNew)) {
             gsmLinesCurrent = gsmLinesNew;
             SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLinesCurrent));
           }
@@ -86,7 +84,7 @@ public class MainFrame extends JFrame {
           mainBox.add(new JLabel("Программа завершилась с ошибкой: " + error.getMessage()));
           revalidate();
           try {
-            Thread.sleep(5000);
+            Thread.sleep(5 * 1000);
           } catch (InterruptedException e) {
             System.exit(-1);
           }
@@ -214,7 +212,7 @@ public class MainFrame extends JFrame {
   @NotNull
   private Box createRebootCommand() {
     Box box = Box.createHorizontalBox();
-    rebootGoIpBtn = new JButton("Рестарт goip");
+    rebootGoIpBtn = new JButton("Рестарт GoIp");
     rebootGoIpBtn.addActionListener(e -> {
       new Thread(() -> {
         if (gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
@@ -224,6 +222,9 @@ public class MainFrame extends JFrame {
             rebootCommandAnswer.removeAll();
             rebootCommandAnswer.add(new JLabel(answer));
             rebootCommandAnswer.revalidate();
+            gsmLinesCurrent.clear();
+            updateCheckBoxes(gsmLinesCurrent);
+            GsmService.clearGsmLineMap();
           });
         }
       }).start();
