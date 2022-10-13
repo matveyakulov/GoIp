@@ -12,7 +12,6 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -305,8 +304,6 @@ public class GsmService {
 
   @NotNull
   public static Map<String, GsmLine> getGsmLineMap() {
-    Map<String, GsmLine> gsmLineTmp = new HashMap<>(gsmLineMap);
-    gsmLineMap.clear();
-    return gsmLineTmp;
+    return gsmLineMap;
   }
 }
