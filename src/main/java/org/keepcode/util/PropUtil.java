@@ -25,18 +25,16 @@ public class PropUtil {
     return getProp("goip.host");
   }
 
-  @NotNull
-  public static Integer getReceivePort() {
+  public static int getReceivePort() {
     return Integer.parseInt(getProp("goip.receive.port"));
   }
 
-  @NotNull
-  public static Integer getSocketTimeout() {
-    return Integer.valueOf(getProp("goip.timeout"));
+  public static int getSocketTimeout() {
+    return Integer.parseInt(getProp("goip.timeout"));
   }
 
   @NotNull
-  private static String getProp(String prop) {
+  private static String getProp(@NotNull String prop) {
     return properties.getProperty(prop);
   }
 }

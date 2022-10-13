@@ -6,7 +6,6 @@ import org.keepcode.service.GsmService;
 import org.keepcode.validate.Validator;
 
 import javax.swing.*;
-import java.awt.*;
 import java.util.Map;
 
 import static org.keepcode.validate.Validator.isValidNum;
@@ -44,10 +43,10 @@ public class MainFrame extends JFrame {
 
   private static JButton sendSmsBtn;
 
-  public MainFrame() throws HeadlessException {
+  public MainFrame() {
     super("Goip");
     Box mainBox = Box.createVerticalBox();
-    setSize(700, 500);
+    setSize(750, 500);
     mainBox.add(createUssdCommand());
     mainBox.add(sendUssdAnswer);
     mainBox.add(createRebootCommand());
@@ -68,7 +67,7 @@ public class MainFrame extends JFrame {
     Thread listenThread = new Thread(GsmService::listen);
     listenThread.setDaemon(true);
     listenThread.start();
-    new Thread(() -> {
+    Thread updateWindowThread = new Thread(() -> {
       while (true) {
         try {
           Thread.sleep(35 * 1000);
@@ -78,12 +77,15 @@ public class MainFrame extends JFrame {
         Map<String, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
 
         if (gsmLinesCurrent == null ||
+          !gsmLinesCurrent.keySet().equals(gsmLinesNew.keySet()) ||
           !gsmLinesCurrent.values().equals(gsmLinesNew.values())) {
           gsmLinesCurrent = gsmLinesNew;
           SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLinesCurrent));
         }
       }
-    }).start();
+    });
+    updateWindowThread.setDaemon(true);
+    updateWindowThread.start();
   }
 
   private void updateCheckBoxes(@NotNull Map<String, GsmLine> gsmLines) {
@@ -182,6 +184,7 @@ public class MainFrame extends JFrame {
           String lineId = linesComboUssd.getSelectedItem();
           String response = GsmService.sendUssd(lineId, ussdValue.getText(), gsmLinesCurrent.get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
+            sendUssdAnswer.removeAll();
             sendUssdAnswer.add(new JLabel(response));
             linesComboUssd.setSelectedIndex(0);
             ussdValue.setText("");
@@ -208,6 +211,7 @@ public class MainFrame extends JFrame {
           String line = gsmLinesCurrent.keySet().stream().findFirst().get();
           String answer = GsmService.reboot(line, gsmLinesCurrent.get(line).getPassword());
           SwingUtilities.invokeLater(() -> {
+            rebootCommandAnswer.removeAll();
             rebootCommandAnswer.add(new JLabel(answer));
             rebootCommandAnswer.revalidate();
           });
@@ -227,6 +231,7 @@ public class MainFrame extends JFrame {
           String lineId = linesComboGetNumInfo.getSelectedItem();
           String response = GsmService.numberInfo(lineId, gsmLinesCurrent.get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
+            numberInfoAnswer.removeAll();
             numberInfoAnswer.add(new JLabel(response));
             linesComboGetNumInfo.setSelectedIndex(0);
             numberInfoAnswer.revalidate();
@@ -251,6 +256,7 @@ public class MainFrame extends JFrame {
           String answer = GsmService.lineReboot(lineId, gsmLinesCurrent.get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             linesComboRebootLine.setSelectedIndex(0);
+            rebootLineCommandAnswer.removeAll();
             rebootLineCommandAnswer.add(new JLabel(answer));
             rebootLineCommandAnswer.revalidate();
           });
@@ -277,6 +283,7 @@ public class MainFrame extends JFrame {
           linesComboSetGsmNum.setSelectedIndex(0);
           SwingUtilities.invokeLater(() -> {
             number.setText("");
+            setGsmNumCommandAnswer.removeAll();
             setGsmNumCommandAnswer.add(new JLabel(answer));
             setGsmNumCommandAnswer.revalidate();
           });
@@ -304,6 +311,7 @@ public class MainFrame extends JFrame {
           String lineId = linesComboSendSms.getSelectedItem();
           String response = GsmService.sendSms(lineId, phonesFromTextField, smsTextField.getText());
           SwingUtilities.invokeLater(() -> {
+            sendSmsCommandAnswer.removeAll();
             sendSmsCommandAnswer.add(new JLabel(response));
             linesComboUssd.setSelectedIndex(0);
             smsTextField.setText("");

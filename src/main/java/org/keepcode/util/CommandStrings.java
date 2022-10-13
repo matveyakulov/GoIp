@@ -11,4 +11,7 @@ public class CommandStrings {
   public static final String PASSWORD = "PASSWORD %d %s\n";
   public static final String SEND = "SEND %d %d %s\n";
   public static final String DONE = "DONE %d\n";
+  public static final String REG_STATUS_MSG = "reg:%s;status:%d;";
+  public static final String RECEIVE_OK_MSG = "RECEIVE %s OK\n";
+  public static final String STATE_OK_MSG = "STATE %s OK\n";
 }
