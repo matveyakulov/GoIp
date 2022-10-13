@@ -74,13 +74,23 @@ public class MainFrame extends JFrame {
         } catch (InterruptedException e) {  // подождать не удалось - берем что есть
           System.out.println("Поток не смог остановиться");
         }
-        Map<String, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
-
-        if (gsmLinesCurrent == null ||
-          !gsmLinesCurrent.keySet().equals(gsmLinesNew.keySet()) ||
-          !gsmLinesCurrent.values().equals(gsmLinesNew.values())) {
-          gsmLinesCurrent = gsmLinesNew;
-          SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLinesCurrent));
+        try {
+          Map<String, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
+          if (gsmLinesCurrent == null ||
+            !gsmLinesCurrent.keySet().equals(gsmLinesNew.keySet()) ||
+            !gsmLinesCurrent.values().equals(gsmLinesNew.values())) {
+            gsmLinesCurrent = gsmLinesNew;
+            SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLinesCurrent));
+          }
+        } catch (NoClassDefFoundError error){
+          mainBox.add(new JLabel("Программа завершилась с ошибкой: " + error.getMessage()));
+          revalidate();
+          try {
+            Thread.sleep(5000);
+          } catch (InterruptedException e) {
+            System.exit(-1);
+          }
+          System.exit(-1);
         }
       }
     });

@@ -16,6 +16,7 @@ public enum LineStatus {
     this.status = status;
   }
 
+  @NotNull
   public String getStatus() {
     return status;
   }
