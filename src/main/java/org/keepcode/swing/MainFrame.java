@@ -1,11 +1,16 @@
 package org.keepcode.swing;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.keepcode.domain.GsmLine;
 import org.keepcode.service.GsmService;
 import org.keepcode.validate.Validator;
 
 import javax.swing.*;
+import java.awt.*;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.keepcode.validate.Validator.isValidNum;
@@ -21,19 +26,23 @@ public class MainFrame extends JFrame {
 
   private final Box sendSmsCommandAnswer = Box.createHorizontalBox();
 
-  private final ComboBoxLines comboBoxLinesStatus = new ComboBoxLines();
+  private final Box mainBox = Box.createVerticalBox();
 
-  private final ComboBoxLines linesComboUssd = new ComboBoxLines();
+  private final JComboBox<String> linesStatusComboBox = getComboBox();
 
-  private final ComboBoxLines linesComboGetNumInfo = new ComboBoxLines();
+  private final JComboBox<String> sendUssdComboBox = getComboBox();
 
-  private final ComboBoxLines linesComboRebootLine = new ComboBoxLines();
+  private final JComboBox<String> getNumInfoComboBox = getComboBox();
 
-  private final ComboBoxLines linesComboSetGsmNum = new ComboBoxLines();
+  private final JComboBox<String> rebootLineComboBox = getComboBox();
 
-  private final ComboBoxLines linesComboSendSms = new ComboBoxLines();
+  private final JComboBox<String> setGsmNumComboBox = getComboBox();
 
-  private static Map<String, GsmLine> gsmLinesCurrent;
+  private final JComboBox<String> sendSmsComboBox = getComboBox();
+
+  private final JComboBox<String> hostComboBox = getComboBox();
+
+  private static Map<String, Map<String, GsmLine>> hostLinesInfoCurrent;
 
   private static JButton sendUssdBtn;
   private static JButton rebootGoIpBtn;
@@ -45,25 +54,17 @@ public class MainFrame extends JFrame {
 
   public MainFrame() {
     super("Goip");
-    Box mainBox = Box.createVerticalBox();
     setSize(750, 500);
-    mainBox.add(createUssdCommand());
-    mainBox.add(sendUssdAnswer);
-    mainBox.add(createRebootCommand());
-    mainBox.add(rebootCommandAnswer);
-    mainBox.add(createNumberInfoCommand());
-    mainBox.add(numberInfoAnswer);
-    mainBox.add(createRebootLineCommand());
-    mainBox.add(rebootLineCommandAnswer);
-    mainBox.add(createSetGsmNumCommand());
-    mainBox.add(setGsmNumCommandAnswer);
-    mainBox.add(createSendSmsCommand());
-    mainBox.add(sendSmsCommandAnswer);
-    mainBox.add(comboBoxLinesStatus);
+    hostComboBox.addActionListener((e) -> {
+      String host = (String) hostComboBox.getSelectedItem();
+      SwingUtilities.invokeLater(() -> {
+        refreshFrame(host);
+        updateLinesComboBox(hostLinesInfoCurrent.get(host));
+      });
+    });
     setVisible(true);
     add(mainBox);
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    changeEnableBtn(false);
     Thread listenThread = new Thread(GsmService::listen);
     listenThread.setDaemon(true);
     listenThread.start();
@@ -71,16 +72,22 @@ public class MainFrame extends JFrame {
       while (true) {
         try {
           Thread.sleep(35 * 1000);
-        } catch (InterruptedException e) {  // подождать не удалось - берем что есть
+        } catch (InterruptedException e) {
           System.out.println("Поток не смог остановиться");
         }
         try {
-          Map<String, GsmLine> gsmLinesNew = GsmService.getGsmLineMap();
-          if (gsmLinesCurrent == null || !gsmLinesCurrent.equals(gsmLinesNew)) {
-            gsmLinesCurrent = gsmLinesNew;
-            SwingUtilities.invokeLater(() -> updateCheckBoxes(gsmLinesCurrent));
+          Map<String, Map<String, GsmLine>> hostLinesInfoNew = GsmService.getHostLineInfo();
+          if (hostLinesInfoCurrent == null || !hostLinesInfoCurrent.equals(hostLinesInfoNew)) {
+            hostLinesInfoCurrent = hostLinesInfoNew;
+            hostLinesInfoCurrent.put("123", new HashMap<>());
+            SwingUtilities.invokeLater(() -> updateHostComboBoxIfChanged(hostLinesInfoCurrent.keySet().toArray(new String[0])));
+            String currentHost = hostComboBox.getSelectedItem() != null ?
+              (String) hostComboBox.getSelectedItem() :
+              hostLinesInfoNew.keySet().stream().findFirst().get();
+            SwingUtilities.invokeLater(() -> updateLinesComboBox(hostLinesInfoCurrent.get(currentHost)));
+            refreshFrame(currentHost);
           }
-        } catch (NoClassDefFoundError error){
+        } catch (NoClassDefFoundError error) {
           mainBox.add(new JLabel("Программа завершилась с ошибкой: " + error.getMessage()));
           revalidate();
           try {
@@ -96,17 +103,55 @@ public class MainFrame extends JFrame {
     updateWindowThread.start();
   }
 
-  private void updateCheckBoxes(@NotNull Map<String, GsmLine> gsmLines) {
+  private void refreshFrame(String currentHost) {
+    mainBox.removeAll();
+    mainBox.add(hostComboBox);
+    mainBox.add(createUssdCommand(currentHost));
+    mainBox.add(sendUssdAnswer);
+    mainBox.add(createRebootCommand(currentHost));
+    mainBox.add(rebootCommandAnswer);
+    mainBox.add(createNumberInfoCommand(currentHost));
+    mainBox.add(numberInfoAnswer);
+    mainBox.add(createRebootLineCommand(currentHost));
+    mainBox.add(rebootLineCommandAnswer);
+    mainBox.add(createSetGsmNumCommand(currentHost));
+    mainBox.add(setGsmNumCommandAnswer);
+    mainBox.add(createSendSmsCommand(currentHost));
+    mainBox.add(sendSmsCommandAnswer);
+    mainBox.add(linesStatusComboBox);
+    revalidate();
+  }
+
+  private void updateHostComboBoxIfChanged(@NotNull String[] hosts) {
+    if (hostComboBox.getItemCount() == 0) {
+      hostComboBox.setModel(new DefaultComboBoxModel<>(hosts));
+    } else {
+      updateHostComboBox(hosts);
+    }
+  }
+
+  private void updateHostComboBox(@NotNull String[] hosts) {
+    ComboBoxModel<String> lineFromModel = hostComboBox.getModel();
+    for (int i = 0; i < hosts.length; i++) {
+      if (!hosts[i].equals(lineFromModel.getElementAt(i))) {
+        hostComboBox.insertItemAt(hosts[i], i);
+      }
+    }
+    while (hosts.length < hostComboBox.getItemCount()) {
+      hostComboBox.removeItemAt(hosts.length);
+    }
+  }
+
+  private void updateLinesComboBox(@NotNull Map<String, GsmLine> gsmLines) {
     String[] linesId = gsmLines.keySet().toArray(new String[0]);
-    if (comboBoxLinesStatus.getItemCount() == 0) {
-      comboBoxLinesStatus.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
+    if (linesStatusComboBox.getItemCount() == 0) {
+      linesStatusComboBox.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
       comboBoxesLinesSetModel(linesId);
     } else {
       updateLinesStatusIfChanged(createStatusLine(gsmLines));
-      updateLinesIfChanged(linesId);
+      updateLinesComboBoxIfChanged(linesId);
     }
     changeEnableBtn(!gsmLines.isEmpty());
-    revalidate();
   }
 
   @NotNull
@@ -128,74 +173,73 @@ public class MainFrame extends JFrame {
   }
 
   @NotNull
-  private JButton[] getAllButtons() {
-    return new JButton[]{sendUssdBtn, rebootLineBtn, rebootGoIpBtn, sendNumInfoBtn, sendSetNumBtn, sendSmsBtn};
+  private List<JButton> getAllButtons() {
+    return Arrays.asList(sendUssdBtn, rebootLineBtn, rebootGoIpBtn, sendNumInfoBtn, sendSetNumBtn, sendSmsBtn);
   }
 
   private void comboBoxesLinesSetModel(@NotNull String[] linesId) {
-    JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
+    List<JComboBox<String>> comboBoxesLines = getAllComboBoxesLines();
     for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
       comboBoxesLine.setModel(new DefaultComboBoxModel<>(linesId));
     }
   }
 
-  @NotNull
-  private JComboBox<String>[] getComboBoxesLines() {
-    return new ComboBoxLines[]{linesComboGetNumInfo, linesComboRebootLine, linesComboUssd, linesComboSetGsmNum, linesComboSendSms};
+  private List<JComboBox<String>> getAllComboBoxesLines() {
+    return Arrays.asList(getNumInfoComboBox, rebootLineComboBox, sendUssdComboBox, setGsmNumComboBox, sendSmsComboBox);
   }
 
-  private void updateLinesStatusIfChanged(@NotNull String[] statusLine) {
-    ComboBoxModel<String> lineFromModel = comboBoxLinesStatus.getModel();
-    for (int i = 0; i < statusLine.length; i++) {
-      if (!statusLine[i].equals(lineFromModel.getElementAt(i))) {
-        comboBoxLinesStatus.insertItemAt(statusLine[i], i);
+  private void updateLinesStatusIfChanged(@NotNull String[] values) {
+    ComboBoxModel<String> lineFromModel = linesStatusComboBox.getModel();
+    for (int i = 0; i < values.length; i++) {
+      if (!values[i].equals(lineFromModel.getElementAt(i))) {
+        linesStatusComboBox.insertItemAt(values[i], i);
       }
     }
-    while (statusLine.length < comboBoxLinesStatus.getItemCount()) {
-      comboBoxLinesStatus.removeItemAt(statusLine.length);
+    while (values.length < linesStatusComboBox.getItemCount()) {
+      linesStatusComboBox.removeItemAt(values.length);
     }
   }
 
-  private void updateLinesIfChanged(@NotNull String[] lineId) {
-    ComboBoxModel<String> lineFromModel = linesComboUssd.getModel();
+  private void updateLinesComboBoxIfChanged(@NotNull String[] lineId) {
+    ComboBoxModel<String> lineFromModel = sendUssdComboBox.getModel();
     for (int i = 0; i < lineId.length; i++) {
       if (!lineId[i].equals(lineFromModel.getElementAt(i))) {
         comboBoxesLinesInsertItemAt(lineId[i], i);
       }
     }
-    while (lineId.length < linesComboUssd.getItemCount()) {
+    while (lineId.length < sendUssdComboBox.getItemCount()) {
       comboBoxesLinesRemoveItemAt(lineId.length);
     }
+    System.out.println(sendUssdComboBox.getModel().getSize());
   }
 
   private void comboBoxesLinesInsertItemAt(@NotNull String lineId, int index) {
-    JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
+    List<JComboBox<String>> comboBoxesLines = getAllComboBoxesLines();
     for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
       comboBoxesLine.insertItemAt(lineId, index);
     }
   }
 
   private void comboBoxesLinesRemoveItemAt(int index) {
-    JComboBox<String>[] comboBoxesLines = getComboBoxesLines();
+    List<JComboBox<String>> comboBoxesLines = getAllComboBoxesLines();
     for (JComboBox<String> comboBoxesLine : comboBoxesLines) {
       comboBoxesLine.removeItemAt(index);
     }
   }
 
   @NotNull
-  private Box createUssdCommand() {
+  private Box createUssdCommand(@NotNull String host) {
     sendUssdBtn = new JButton("Отправить");
-    JTextField ussdValue = new CustomTextField();
+    JTextField ussdValue = getTextField();
     sendUssdBtn.addActionListener(e ->
       new Thread(() -> {
-        if (Validator.isValidUssd(ussdValue.getText()) && linesComboUssd.getSelectedItem() != null) {
-          String lineId = linesComboUssd.getSelectedItem();
-          String response = GsmService.sendUssd(lineId, ussdValue.getText(), gsmLinesCurrent.get(lineId).getPassword());
+        if (Validator.isValidUssd(ussdValue.getText()) && sendUssdComboBox.getSelectedItem() != null) {
+          String lineId = (String) sendUssdComboBox.getSelectedItem();
+          String response = GsmService.sendUssd(host, lineId, ussdValue.getText(),
+            hostLinesInfoCurrent.get(host).get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             sendUssdAnswer.removeAll();
             sendUssdAnswer.add(new JLabel(response));
-            linesComboUssd.setSelectedIndex(0);
-            ussdValue.setText("");
             sendUssdAnswer.revalidate();
           });
         }
@@ -204,27 +248,27 @@ public class MainFrame extends JFrame {
     innerBox.add(new JLabel("Отправить ussd:"));
     innerBox.add(ussdValue);
     innerBox.add(new JLabel("на линию:"));
-    innerBox.add(linesComboUssd);
+    innerBox.add(sendUssdComboBox);
     innerBox.add(sendUssdBtn);
     return innerBox;
   }
 
   @NotNull
-  private Box createRebootCommand() {
+  private Box createRebootCommand(@NotNull String host) {
     Box box = Box.createHorizontalBox();
     rebootGoIpBtn = new JButton("Рестарт GoIp");
     rebootGoIpBtn.addActionListener(e -> {
       new Thread(() -> {
-        if (gsmLinesCurrent != null && !gsmLinesCurrent.isEmpty()) {
-          String line = gsmLinesCurrent.keySet().stream().findFirst().get();
-          String answer = GsmService.reboot(line, gsmLinesCurrent.get(line).getPassword());
+        if (hostLinesInfoCurrent != null && !hostLinesInfoCurrent.isEmpty()) {
+          String line = hostLinesInfoCurrent.keySet().stream().findFirst().get();
+          String answer = GsmService.reboot(host, line, hostLinesInfoCurrent.get(host).get(line).getPassword());
           SwingUtilities.invokeLater(() -> {
             rebootCommandAnswer.removeAll();
             rebootCommandAnswer.add(new JLabel(answer));
             rebootCommandAnswer.revalidate();
-            gsmLinesCurrent.clear();
-            updateCheckBoxes(gsmLinesCurrent);
-            GsmService.clearGsmLineMap();
+            hostLinesInfoCurrent.clear();
+            clearLinesComboBox();
+            GsmService.clearHostLineInfo();
           });
         }
       }).start();
@@ -233,40 +277,44 @@ public class MainFrame extends JFrame {
     return box;
   }
 
+  private void clearLinesComboBox() {
+    getComboBox();
+    for (JComboBox<String> comboBox : getAllComboBoxesLines()) {
+      comboBox.removeAll();
+    }
+  }
+
   @NotNull
-  private Box createNumberInfoCommand() {
-    sendNumInfoBtn = new JButton("Отправить");
+  private Box createNumberInfoCommand(@NotNull String host) {
+    sendNumInfoBtn = new JButton("Узнать номер на линии");
     sendNumInfoBtn.addActionListener(e ->
       new Thread(() -> {
-        if (linesComboGetNumInfo.getSelectedItem() != null) {
-          String lineId = linesComboGetNumInfo.getSelectedItem();
-          String response = GsmService.numberInfo(lineId, gsmLinesCurrent.get(lineId).getPassword());
+        if (getNumInfoComboBox.getSelectedItem() != null) {
+          String lineId = (String) getNumInfoComboBox.getSelectedItem();
+          String response = GsmService.numberInfo(host, lineId, hostLinesInfoCurrent.get(host).get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             numberInfoAnswer.removeAll();
             numberInfoAnswer.add(new JLabel(response));
-            linesComboGetNumInfo.setSelectedIndex(0);
             numberInfoAnswer.revalidate();
           });
         }
       }).start()
     );
     Box innerBox = Box.createHorizontalBox();
-    innerBox.add(new JLabel("Узнать номер на линии:"));
-    innerBox.add(linesComboGetNumInfo);
+    innerBox.add(getNumInfoComboBox);
     innerBox.add(sendNumInfoBtn);
     return innerBox;
   }
 
   @NotNull
-  private Box createRebootLineCommand() {
-    rebootLineBtn = new JButton("Отправить");
+  private Box createRebootLineCommand(@NotNull String host) {
+    rebootLineBtn = new JButton("Перезагрузить линию");
     rebootLineBtn.addActionListener(e ->
       new Thread(() -> {
-        if (linesComboRebootLine.getSelectedItem() != null) {
-          String lineId = linesComboRebootLine.getSelectedItem();
-          String answer = GsmService.lineReboot(lineId, gsmLinesCurrent.get(lineId).getPassword());
+        if (rebootLineComboBox.getSelectedItem() != null) {
+          String lineId = (String) rebootLineComboBox.getSelectedItem();
+          String answer = GsmService.lineReboot(host, lineId, hostLinesInfoCurrent.get(host).get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
-            linesComboRebootLine.setSelectedIndex(0);
             rebootLineCommandAnswer.removeAll();
             rebootLineCommandAnswer.add(new JLabel(answer));
             rebootLineCommandAnswer.revalidate();
@@ -275,25 +323,23 @@ public class MainFrame extends JFrame {
       }).start()
     );
     Box innerBox = Box.createHorizontalBox();
-    innerBox.add(new JLabel("Перезагрузить линию:"));
-    innerBox.add(linesComboRebootLine);
+    innerBox.add(rebootLineComboBox);
     innerBox.add(rebootLineBtn);
     innerBox.add(rebootLineCommandAnswer);
     return innerBox;
   }
 
   @NotNull
-  private Box createSetGsmNumCommand() {
-    JTextField number = new CustomTextField();
-    sendSetNumBtn = new JButton("Отправить");
+  private Box createSetGsmNumCommand(@NotNull String host) {
+    JTextField number = getTextField();
+    sendSetNumBtn = new JButton("Изменить");
     sendSetNumBtn.addActionListener(e ->
       new Thread(() -> {
-        if (isValidNum(number.getText()) && linesComboSetGsmNum.getSelectedItem() != null) {
-          String lineId = linesComboSetGsmNum.getSelectedItem();
-          String answer = GsmService.setGsmNum(lineId, number.getText(), gsmLinesCurrent.get(lineId).getPassword());
-          linesComboSetGsmNum.setSelectedIndex(0);
+        if (isValidNum(number.getText()) && setGsmNumComboBox.getSelectedItem() != null) {
+          String lineId = (String) setGsmNumComboBox.getSelectedItem();
+          String answer = GsmService.setGsmNum(host, lineId, number.getText(),
+            hostLinesInfoCurrent.get(host).get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
-            number.setText("");
             setGsmNumCommandAnswer.removeAll();
             setGsmNumCommandAnswer.add(new JLabel(answer));
             setGsmNumCommandAnswer.revalidate();
@@ -303,7 +349,7 @@ public class MainFrame extends JFrame {
     );
     Box innerBox = Box.createHorizontalBox();
     innerBox.add(new JLabel("На линии:"));
-    innerBox.add(linesComboSetGsmNum);
+    innerBox.add(setGsmNumComboBox);
     innerBox.add(new JLabel("изменить номер на:"));
     innerBox.add(number);
     innerBox.add(sendSetNumBtn);
@@ -311,22 +357,19 @@ public class MainFrame extends JFrame {
   }
 
   @NotNull
-  private Box createSendSmsCommand() {
+  private Box createSendSmsCommand(@NotNull String host) {
     sendSmsBtn = new JButton("Отправить");
-    JTextField smsTextField = new CustomTextField();
-    JTextField phonesTextField = new CustomTextField();
+    JTextField smsTextField = getTextField();
+    JTextField phonesTextField = getTextField();
     sendSmsBtn.addActionListener(e ->
       new Thread(() -> {
         String[] phonesFromTextField = phonesTextField.getText().split("\\s");
-        if (linesComboSendSms.getSelectedItem() != null) {
-          String lineId = linesComboSendSms.getSelectedItem();
-          String response = GsmService.sendSms(lineId, phonesFromTextField, smsTextField.getText());
+        if (sendSmsComboBox.getSelectedItem() != null) {
+          String lineId = (String) sendSmsComboBox.getSelectedItem();
+          String response = GsmService.sendSms(host, lineId, phonesFromTextField, smsTextField.getText());
           SwingUtilities.invokeLater(() -> {
             sendSmsCommandAnswer.removeAll();
             sendSmsCommandAnswer.add(new JLabel(response));
-            linesComboUssd.setSelectedIndex(0);
-            smsTextField.setText("");
-            phonesTextField.setText("");
             sendUssdAnswer.revalidate();
           });
         }
@@ -335,10 +378,31 @@ public class MainFrame extends JFrame {
     innerBox.add(new JLabel("Отправить sms:"));
     innerBox.add(smsTextField);
     innerBox.add(new JLabel("c линии:"));
-    innerBox.add(linesComboSendSms);
+    innerBox.add(sendSmsComboBox);
     innerBox.add(new JLabel("на номера(через пробел):"));
     innerBox.add(phonesTextField);
     innerBox.add(sendSmsBtn);
     return innerBox;
+  }
+
+  @NotNull
+  private JComboBox<String> getComboBox() {
+    JComboBox<String> comboBox = new JComboBox<String>(new String[0]) {
+      @Nullable
+      @Override
+      public String getSelectedItem() {
+        return (String) super.getSelectedItem();
+      }
+    };
+    comboBox.setMaximumSize(new Dimension(170, 50));
+    return comboBox;
+  }
+
+  @NotNull
+  private JTextField getTextField() {
+    JTextField textField = new JTextField();
+    textField.setMaximumSize(new Dimension(100, 50));
+    textField.setEditable(true);
+    return textField;
   }
 }

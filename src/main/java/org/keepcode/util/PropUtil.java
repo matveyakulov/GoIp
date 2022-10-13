@@ -20,11 +20,6 @@ public class PropUtil {
     }
   }
 
-  @NotNull
-  public static String getHost() {
-    return getProp("goip.host");
-  }
-
   public static int getReceivePort() {
     return Integer.parseInt(getProp("goip.receive.port"));
   }
