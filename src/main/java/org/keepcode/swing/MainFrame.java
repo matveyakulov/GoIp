@@ -77,15 +77,17 @@ public class MainFrame extends JFrame {
         }
         try {
           Map<String, Map<String, GsmLine>> hostLinesInfoNew = GsmService.getHostLineInfo();
-          if (hostLinesInfoCurrent == null || !hostLinesInfoCurrent.equals(hostLinesInfoNew)) {
+          if ((hostLinesInfoCurrent == null  || !hostLinesInfoCurrent.equals(hostLinesInfoNew) && !hostLinesInfoNew.isEmpty())) {
             hostLinesInfoCurrent = hostLinesInfoNew;
-            hostLinesInfoCurrent.put("123", new HashMap<>());
-            SwingUtilities.invokeLater(() -> updateHostComboBoxIfChanged(hostLinesInfoCurrent.keySet().toArray(new String[0])));
+            hostLinesInfoCurrent.put("123", new HashMap<>());  // это чтобы был еще один хост для теста
             String currentHost = hostComboBox.getSelectedItem() != null ?
               (String) hostComboBox.getSelectedItem() :
               hostLinesInfoNew.keySet().stream().findFirst().get();
-            SwingUtilities.invokeLater(() -> updateLinesComboBox(hostLinesInfoCurrent.get(currentHost)));
-            refreshFrame(currentHost);
+            SwingUtilities.invokeLater(() -> {
+              refreshFrame(currentHost);
+              updateHostComboBoxIfChanged(hostLinesInfoCurrent.keySet().toArray(new String[0]));
+              updateLinesComboBox(hostLinesInfoCurrent.get(currentHost));
+            });
           }
         } catch (NoClassDefFoundError error) {
           mainBox.add(new JLabel("Программа завершилась с ошибкой: " + error.getMessage()));
@@ -126,19 +128,7 @@ public class MainFrame extends JFrame {
     if (hostComboBox.getItemCount() == 0) {
       hostComboBox.setModel(new DefaultComboBoxModel<>(hosts));
     } else {
-      updateHostComboBox(hosts);
-    }
-  }
-
-  private void updateHostComboBox(@NotNull String[] hosts) {
-    ComboBoxModel<String> lineFromModel = hostComboBox.getModel();
-    for (int i = 0; i < hosts.length; i++) {
-      if (!hosts[i].equals(lineFromModel.getElementAt(i))) {
-        hostComboBox.insertItemAt(hosts[i], i);
-      }
-    }
-    while (hosts.length < hostComboBox.getItemCount()) {
-      hostComboBox.removeItemAt(hosts.length);
+      updateComboBoxIfChanged(hostComboBox, hosts);
     }
   }
 
@@ -148,7 +138,7 @@ public class MainFrame extends JFrame {
       linesStatusComboBox.setModel(new DefaultComboBoxModel<>(createStatusLine(gsmLines)));
       comboBoxesLinesSetModel(linesId);
     } else {
-      updateLinesStatusIfChanged(createStatusLine(gsmLines));
+      updateComboBoxIfChanged(linesStatusComboBox, createStatusLine(gsmLines));
       updateLinesComboBoxIfChanged(linesId);
     }
     changeEnableBtn(!gsmLines.isEmpty());
@@ -188,15 +178,15 @@ public class MainFrame extends JFrame {
     return Arrays.asList(getNumInfoComboBox, rebootLineComboBox, sendUssdComboBox, setGsmNumComboBox, sendSmsComboBox);
   }
 
-  private void updateLinesStatusIfChanged(@NotNull String[] values) {
-    ComboBoxModel<String> lineFromModel = linesStatusComboBox.getModel();
+  private void updateComboBoxIfChanged(@NotNull JComboBox<String> comboBox, @NotNull String[] values) {
+    ComboBoxModel<String> lineFromModel = comboBox.getModel();
     for (int i = 0; i < values.length; i++) {
       if (!values[i].equals(lineFromModel.getElementAt(i))) {
-        linesStatusComboBox.insertItemAt(values[i], i);
+        comboBox.insertItemAt(values[i], i);
       }
     }
-    while (values.length < linesStatusComboBox.getItemCount()) {
-      linesStatusComboBox.removeItemAt(values.length);
+    while (values.length < comboBox.getItemCount()) {
+      comboBox.removeItemAt(values.length);
     }
   }
 
@@ -210,7 +200,6 @@ public class MainFrame extends JFrame {
     while (lineId.length < sendUssdComboBox.getItemCount()) {
       comboBoxesLinesRemoveItemAt(lineId.length);
     }
-    System.out.println(sendUssdComboBox.getModel().getSize());
   }
 
   private void comboBoxesLinesInsertItemAt(@NotNull String lineId, int index) {

@@ -3,14 +3,18 @@ package org.keepcode.service;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.keepcode.domain.GsmLine;
+import org.keepcode.domain.SimUssdCommand;
+import org.keepcode.enums.LineStatus;
 import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
+import org.keepcode.factory.SimUssdFactory;
 import org.keepcode.util.PropUtil;
 import org.keepcode.validate.Validator;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -43,18 +47,22 @@ public class GsmService {
 
   private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("\\+\\d+");
 
+  private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("\\s(?<phone>[+()\\-\\s\\d]{9,})");
+
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
   private static final Pattern FIRST_COMMAND_PATTERN = Pattern.compile("(?<first>^\\w+)");
 
-  private static final Pattern KEEP_ALIVE_PARAM_PATTERN = Pattern.compile(".*id:(?<id>.+);.*pass:(?<pass>.+);num.*" +
-    "gsm_status:(?<gsmStatus>\\w*);");
+  private static final Pattern KEEP_ALIVE_PARAM_PATTERN = Pattern.compile(".*id:(?<id>.+);pass:(?<pass>.+);" +
+    "num:(?<num>[+()\\-\\s\\d]*);signal.*gsm_status:(?<gsmStatus>\\w*);.*imsi:(?<imsi>\\d+);iccid.*pro:(?<operator>\\w*);idle");
 
-  private static final Pattern MSG_PATTERN = Pattern.compile("msg:(?<msg>.+)");
+  private static final Pattern RECEIVE_PATTERN = Pattern.compile("id:(?<id>.+);password:(?<password>.+);srcnum.*msg:(?<msg>.+)");
 
   private static final Pattern AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+\\s?(?<answer>.*)");
 
   private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.*\\s+(?<errorMsg>.+)$");
+
+  private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d{2})\\d+");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
@@ -63,6 +71,9 @@ public class GsmService {
   private static final int CORRECT_ANSWER_PASSWORD = 0;
 
   private static final int UN_CORRECT_ANSWER_PASSWORD = -1;
+
+  private static final Map<Integer, Map<Integer, SimUssdCommand>> countryOperatorSimUssdCommand =
+    SimUssdFactory.getAllAvailableCountryOperatorSimUssdCommand();
 
   @NotNull
   public static String reboot(@NotNull String host, @NotNull String lineId, @NotNull String password) {
@@ -125,9 +136,34 @@ public class GsmService {
   }
 
   @NotNull
-  public static String sendSms(@NotNull String host, @NotNull String lineId,@NotNull String[] phonesFromTextField,
+  private static String sendCommandAndGetFullAnswer(@NotNull String host, @NotNull DatagramSocket clientSocket,
+                                                    @NotNull String command, int port) throws Exception {
+    try {
+      clientSocket.send(getSendingPacket(host, command, port));
+      DatagramPacket receivingPacket = getReceivingPacket();
+      clientSocket.receive(receivingPacket);
+      return getAnswerFromPacket(receivingPacket);
+    } catch (Exception e) {
+      throw new Exception(String.format("Не удалось отправить команду:%s из-за ошибки %s", command, e.getMessage()));
+    }
+  }
+
+  @NotNull
+  private static DatagramPacket getSendingPacket(@NotNull String host, @NotNull String command, int port) throws UnknownHostException {
+    byte[] commandBytes = command.getBytes();
+    return new DatagramPacket(commandBytes, commandBytes.length, InetAddressFactory.getAddress(host), port);
+  }
+
+  @NotNull
+  private static DatagramPacket getReceivingPacket() {
+    byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
+    return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
+  }
+
+  @NotNull
+  public static String sendSms(@NotNull String host, @NotNull String lineId, @NotNull String[] phonesFromTextField,
                                @NotNull String message) {
-    if (message.getBytes().length > 3000) {
+    if (message.getBytes(StandardCharsets.UTF_8).length > 3000) {
       return "Сообщение не должно превышать 3к символов";
     }
     StringBuilder responseBuilder = new StringBuilder();
@@ -191,31 +227,6 @@ public class GsmService {
     }
   }
 
-  @NotNull
-  private static String sendCommandAndGetFullAnswer(@NotNull String host, @NotNull DatagramSocket clientSocket,
-                                                    @NotNull String command, int port) throws Exception {
-    try {
-      clientSocket.send(getSendingPacket(host, command, port));
-      DatagramPacket receivingPacket = getReceivingPacket();
-      clientSocket.receive(receivingPacket);
-      return getAnswerFromPacket(receivingPacket);
-    } catch (Exception e) {
-      throw new Exception(String.format("Не удалось отправить команду:%s из-за ошибки %s", command, e.getMessage()));
-    }
-  }
-
-  @NotNull
-  private static DatagramPacket getSendingPacket(@NotNull String host, @NotNull String command, int port) throws UnknownHostException {
-    byte[] commandBytes = command.getBytes();
-    return new DatagramPacket(commandBytes, commandBytes.length, InetAddressFactory.getAddress(host), port);
-  }
-
-  @NotNull
-  private static DatagramPacket getReceivingPacket() {
-    byte[] receivingDataBuffer = new byte[RECEIVED_DATA_BUFFER_SIZE];
-    return new DatagramPacket(receivingDataBuffer, receivingDataBuffer.length);
-  }
-
   public static void listen() {
     try (DatagramSocket clientSocket = new DatagramSocket(RECEIVE_PORT)) {
       while (true) {
@@ -253,16 +264,38 @@ public class GsmService {
     return new String(receivingPacket.getData()).trim();
   }
 
-  private static void handleReceiveCall(@NotNull String host, @NotNull String receivedData, int receivePort) throws Exception {
-    if (receivedData.contains("INCOMING")) {
-      write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), receivePort));
+  private static void handleKeepAlive(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
+    Matcher matcher = KEEP_ALIVE_PARAM_PATTERN.matcher(receivedData);
+    if (matcher.find()) {
+      String lineId = matcher.group("id");
+      String password = matcher.group("pass");
+      String num = matcher.group("num");
+      String gsmStatus = matcher.group("gsmStatus");
+      String imsi = matcher.group("imsi");
+      String operator = matcher.group("operator");  // пока нигде его не использую, по идее графику надо будет допилить, но там непонятно надо ли
+      int ansStatus = CORRECT_ANSWER_PASSWORD;
+      hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
+      GsmLine currentLine = hostLineInfo.get(host).get(lineId);
+      if (currentLine != null && !currentLine.getPassword().equals(password)) {
+        ansStatus = UN_CORRECT_ANSWER_PASSWORD;
+      }
+      GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, num);
+      hostLineInfo.get(host).put(lineId, gsmLine);
+      sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
+      if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.ACTIVE) {
+        new Thread(() -> setNumber(host, lineId, imsi, password)).start();
+      }
+    } else {
+      throw new Exception(String.format("Не удалось обработать keepAlive: %s, потому что не найдено ничего по паттерну %s",
+        receivedData, KEEP_ALIVE_PARAM_PATTERN.pattern()));
     }
-    sendAnswer(host, String.format(STATE_OK_MSG, parseSendId(receivedData)), receivePort);
   }
 
-  @NotNull
-  private static String parseSendId(@NotNull String text) throws Exception {
-    return matchPattern(SEND_ID_PATTERN, text, "sendId");
+  private static void handleReceiveCall(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
+    if (receivedData.contains("INCOMING")) {
+      write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), port));
+    }
+    sendAnswer(host, String.format(STATE_OK_MSG, parseSendId(receivedData)), port);
   }
 
   @NotNull
@@ -270,39 +303,9 @@ public class GsmService {
     return matchPattern(PHONE_NUMBER_PATTERN, text);
   }
 
-  private static void sendAnswer(@NotNull String host, @NotNull String answer, int port) throws Exception {
-    try (DatagramSocket datagramSocket = DatagramSocketFactory.getSocket()) {
-      DatagramPacket sendingPacket = getSendingPacket(host, answer, port);
-      datagramSocket.send(sendingPacket);
-    } catch (Exception e) {
-      throw new Exception(String.format("Не удалось отправить ответ: %s из-за ошибки: %s", answer, e.getMessage()));
-    }
-  }
-
-  private static void handleReceiveMsg(@NotNull String host, @NotNull String receivedData, int receivePort) throws Exception {
-    String msg = matchPattern(MSG_PATTERN, receivedData, "msg");
-    write(String.format(RECEIVE_SMS_MSG, msg, receivePort));
-    sendAnswer(host, String.format(RECEIVE_OK_MSG, parseSendId(receivedData)), receivePort);
-  }
-
-  private static void handleKeepAlive(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
-    Matcher matcher = KEEP_ALIVE_PARAM_PATTERN.matcher(receivedData);
-    if (matcher.find()) {
-      String lineId = matcher.group("id");
-      String password = matcher.group("pass");
-      String gsmStatus = matcher.group("gsmStatus");
-      int ansStatus = CORRECT_ANSWER_PASSWORD;
-      hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
-      GsmLine currentLine = hostLineInfo.get(host).get(lineId);
-      if (currentLine != null && !currentLine.getPassword().equals(password)) {
-        ansStatus = UN_CORRECT_ANSWER_PASSWORD;
-      }
-      hostLineInfo.get(host).put(lineId, new GsmLine(port, password, gsmStatus));
-      sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
-    } else {
-      throw new Exception(String.format("Не удалось обработать keepAlive: %s, потому что не найдено ничего по паттерну %s",
-        receivedData, KEEP_ALIVE_PARAM_PATTERN.pattern()));
-    }
+  @NotNull
+  private static String parseSendId(@NotNull String text) throws Exception {
+    return matchPattern(SEND_ID_PATTERN, text, "sendId");
   }
 
   @NotNull
@@ -319,11 +322,73 @@ public class GsmService {
     throw new Exception(String.format("В тексте %s ничего не найдено по паттерну %s с группой %s", text, pattern.pattern(), group));
   }
 
+  private static void sendAnswer(@NotNull String host, @NotNull String answer, int port) throws Exception {
+    try (DatagramSocket datagramSocket = DatagramSocketFactory.getSocket()) {
+      DatagramPacket sendingPacket = getSendingPacket(host, answer, port);
+      datagramSocket.send(sendingPacket);
+    } catch (Exception e) {
+      throw new Exception(String.format("Не удалось отправить ответ: %s из-за ошибки: %s", answer, e.getMessage()));
+    }
+  }
+
+  private static void handleReceiveMsg(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
+    Matcher matcher = RECEIVE_PATTERN.matcher(receivedData);
+    if (matcher.find()) {
+      String msg = matcher.group("msg");
+      try {
+        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, msg, "phone");
+        String lineId = matcher.group("id");
+        String password = matcher.group("password");
+        new Thread(() -> {
+          String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
+          if(setGsmNumAnswer.toLowerCase().contains("ok")){
+            System.out.printf("На линии %s номер изменен на %s%n", lineId, phone);
+          }
+        }).start();
+      } catch (Exception e) {
+        System.out.printf("В сообщении %s номер не распознан", msg); // весь лог этим засрется, но хз как еще обработать
+      }
+      write(String.format(RECEIVE_SMS_MSG, msg, port));
+      sendAnswer(host, String.format(RECEIVE_OK_MSG, parseSendId(receivedData)), port);
+    }
+  }
+
   @NotNull
   public static Map<String, Map<String, GsmLine>> getHostLineInfo() {
     return new HashMap<>(hostLineInfo);
   }
+
   public static void clearHostLineInfo() {
     hostLineInfo.clear();
+  }
+
+  public static void setNumber(@NotNull String host, @NotNull String lineId, @NotNull String imsi, @NotNull String password) {
+    Matcher matcher = IMSI_PATTERN.matcher(imsi);
+    if (matcher.find()) {
+      int countryCode = Integer.parseInt(matcher.group("countryCode"));
+      int operatorCode = Integer.parseInt(matcher.group("operatorCode"));
+      if (!countryOperatorSimUssdCommand.containsKey(countryCode)) {
+        System.out.println("Не поддерживаемая страна с кодом: " + countryCode);
+        return;
+      }
+      if (!countryOperatorSimUssdCommand.get(countryCode).containsKey(operatorCode)) {
+        System.out.printf("Не поддерживаемый оператор с кодом: %s в стране с кодом: %s%n", operatorCode, countryCode);
+        return;
+      }
+      String ussdAnswer = sendUssd(host, lineId,
+        countryOperatorSimUssdCommand.get(countryCode).get(operatorCode).getNumInfo(), password);
+      try {
+        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, matchPattern(AFTER_SEND_ID_PATTERN, ussdAnswer), "phone");
+        phone = phone.replaceAll("\\s+", "");
+        String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
+        if(setGsmNumAnswer.toLowerCase().contains("ok")){
+          System.out.printf("На линии %s номер изменен на %s", lineId, phone);
+        }
+      } catch (Exception e) {
+        System.out.println(e.getMessage());
+      }
+    } else {
+      System.out.printf("Ничего не найдено в imsi %s по паттерну %s%n", imsi, IMSI_PATTERN.pattern());
+    }
   }
 }
