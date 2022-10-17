@@ -47,7 +47,7 @@ public class GsmService {
 
   private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("\\+\\d+");
 
-  private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("\\s(?<phone>[+()\\-\\s\\d]{9,})");
+  private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("(?<phone>\\d{9,})");
 
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
@@ -336,6 +336,7 @@ public class GsmService {
     if (matcher.find()) {
       String msg = matcher.group("msg");
       try {
+        msg = msg.replaceAll("[+()\\-\\s*]", "");
         String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, msg, "phone");
         String lineId = matcher.group("id");
         String password = matcher.group("password");
@@ -378,8 +379,9 @@ public class GsmService {
       String ussdAnswer = sendUssd(host, lineId,
         countryOperatorSimUssdCommand.get(countryCode).get(operatorCode).getNumInfo(), password);
       try {
-        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, matchPattern(AFTER_SEND_ID_PATTERN, ussdAnswer), "phone");
-        phone = phone.replaceAll("\\s+", "");
+        String textAfterSendId = matchPattern(AFTER_SEND_ID_PATTERN, ussdAnswer);
+        textAfterSendId = textAfterSendId.replaceAll("[+()\\-\\s]", "");
+        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, textAfterSendId, "phone");
         String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
         if(setGsmNumAnswer.toLowerCase().contains("ok")){
           System.out.printf("На линии %s номер изменен на %s", lineId, phone);

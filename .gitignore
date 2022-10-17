@@ -1,2 +1,3 @@
 # Project exclude paths
 /target/
+/.idea/libraries/Maven__org_jetbrains_annotations_20_1_0.xml
