@@ -4,7 +4,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.keepcode.domain.GsmLine;
 import org.keepcode.domain.SimUssdCommand;
+import org.keepcode.enums.Country;
 import org.keepcode.enums.LineStatus;
+import org.keepcode.enums.SimOperator;
 import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.factory.SimUssdFactory;
@@ -62,7 +64,7 @@ public class GsmService {
 
   private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.*\\s+(?<errorMsg>.+)$");
 
-  private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d{2})\\d+");
+  private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d+)\\d{10}");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
@@ -72,7 +74,7 @@ public class GsmService {
 
   private static final int UN_CORRECT_ANSWER_PASSWORD = -1;
 
-  private static final Map<Integer, Map<Integer, SimUssdCommand>> countryOperatorSimUssdCommand =
+  private static final Map<Country, Map<SimOperator, SimUssdCommand>> countryOperatorSimUssdCommand =
     SimUssdFactory.getAllAvailableCountryOperatorSimUssdCommand();
 
   @NotNull
@@ -271,7 +273,7 @@ public class GsmService {
       String password = matcher.group("pass");
       String num = matcher.group("num");
       String gsmStatus = matcher.group("gsmStatus");
-      String imsi = matcher.group("imsi");
+      int imsi = Integer.parseInt(matcher.group("imsi"));
       String operator = matcher.group("operator");  // пока нигде его не использую, по идее графику надо будет допилить, но там непонятно надо ли
       int ansStatus = CORRECT_ANSWER_PASSWORD;
       hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
@@ -282,13 +284,13 @@ public class GsmService {
       Long longNum;
       try {
         longNum = Long.parseLong(num);
-      } catch (Exception e){
+      } catch (Exception e) {
         longNum = null;
       }
       GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
       hostLineInfo.get(host).put(lineId, gsmLine);
       sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
-      if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.ACTIVE) {
+      if (gsmLine.getStatus() == LineStatus.ACTIVE && lineId.equals("goip01")) {
         new Thread(() -> setNumber(host, lineId, imsi, password)).start();
       }
     } else {
@@ -348,7 +350,7 @@ public class GsmService {
         String password = matcher.group("password");
         new Thread(() -> {
           String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
-          if(setGsmNumAnswer.toLowerCase().contains("ok")){
+          if (setGsmNumAnswer.toLowerCase().contains("ok")) {
             System.out.printf("На линии %s номер изменен на %s%n", lineId, phone);
           }
         }).start();
@@ -369,27 +371,28 @@ public class GsmService {
     hostLineInfo.clear();
   }
 
-  public static void setNumber(@NotNull String host, @NotNull String lineId, @NotNull String imsi, @NotNull String password) {
-    Matcher matcher = IMSI_PATTERN.matcher(imsi);
+  public static void setNumber(@NotNull String host, @NotNull String lineId, int imsi, @NotNull String password) {
+    Matcher matcher = IMSI_PATTERN.matcher(String.valueOf(imsi));
     if (matcher.find()) {
       int countryCode = Integer.parseInt(matcher.group("countryCode"));
       int operatorCode = Integer.parseInt(matcher.group("operatorCode"));
-      if (!countryOperatorSimUssdCommand.containsKey(countryCode)) {
+      Country country = SimUssdFactory.getCountryByCode(countryCode);
+      if (country == null) {
         System.out.println("Не поддерживаемая страна с кодом: " + countryCode);
         return;
       }
-      if (!countryOperatorSimUssdCommand.get(countryCode).containsKey(operatorCode)) {
+      SimOperator simOperator = SimUssdFactory.containsCountryAndOperator(countryCode, operatorCode);
+      if (simOperator == null) {
         System.out.printf("Не поддерживаемый оператор с кодом: %s в стране с кодом: %s%n", operatorCode, countryCode);
         return;
       }
       String ussdAnswer = sendUssd(host, lineId,
-        countryOperatorSimUssdCommand.get(countryCode).get(operatorCode).getNumInfo(), password);
+        countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password);
       try {
-        String textAfterSendId = matchPattern(AFTER_SEND_ID_PATTERN, ussdAnswer);
-        textAfterSendId = textAfterSendId.replaceAll("[+()\\-\\s]", "");
-        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, textAfterSendId, "phone");
+        ussdAnswer = ussdAnswer.replaceAll("[+()\\-\\s]", "");
+        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, ussdAnswer, "phone");
         String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
-        if(setGsmNumAnswer.toLowerCase().contains("ok")){
+        if (setGsmNumAnswer.toLowerCase().contains("ok")) {
           System.out.printf("На линии %s номер изменен на %s", lineId, phone);
         }
       } catch (Exception e) {

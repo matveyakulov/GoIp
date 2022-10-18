@@ -1,6 +1,7 @@
 package org.keepcode.domain;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.keepcode.enums.LineStatus;
 
 import static org.keepcode.enums.LineStatus.ACTIVE;
@@ -13,13 +14,13 @@ public class GsmLine {
   private final String password;
   private final LineStatus status;
 
-  private final String imsi;
+  private final int imsi;
 
   private final String operator;
   private final Long phoneNum;
 
-  public GsmLine(int port, @NotNull String password, @NotNull String status, @NotNull String imsi,
-                 @NotNull String operator, @NotNull Long phoneNum) {
+  public GsmLine(int port, @NotNull String password, @NotNull String status, int imsi,
+                 @NotNull String operator, @Nullable Long phoneNum) {
     this.port = port;
     this.password = password;
     this.status = getLineStatus(status);
@@ -54,8 +55,7 @@ public class GsmLine {
     return status;
   }
 
-  @NotNull
-  public String getImsi() {
+  public int getImsi() {
     return imsi;
   }
 
@@ -64,7 +64,7 @@ public class GsmLine {
     return operator;
   }
 
-  @NotNull
+  @Nullable
   public Long getPhoneNum() {
     return phoneNum;
   }

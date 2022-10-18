@@ -1,17 +1,30 @@
 package org.keepcode.factory;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.keepcode.domain.SimUssdCommand;
+import org.keepcode.enums.Country;
+import org.keepcode.enums.SimOperator;
 
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.Map;
+
+import static org.keepcode.enums.Country.RUSSIA;
+import static org.keepcode.enums.SimOperator.BEELINE28;
+import static org.keepcode.enums.SimOperator.BEELINE99;
+import static org.keepcode.enums.SimOperator.KUBGSM;
+import static org.keepcode.enums.SimOperator.MEGAFON;
+import static org.keepcode.enums.SimOperator.MTC;
+import static org.keepcode.enums.SimOperator.TELE2;
 
 public class SimUssdFactory {
 
-  private static Map<Integer, Map<Integer, SimUssdCommand>> countryOperatorSimUssdCommand;
+  private static Map<Country, Map<SimOperator, SimUssdCommand>> countryOperatorSimUssdCommand;
 
-  public static Map<Integer, Map<Integer, SimUssdCommand>> getAllAvailableCountryOperatorSimUssdCommand() {
+  @NotNull
+  public static Map<Country, Map<SimOperator, SimUssdCommand>> getAllAvailableCountryOperatorSimUssdCommand() {
     if (countryOperatorSimUssdCommand == null) {
-      countryOperatorSimUssdCommand = new HashMap<>();
+      countryOperatorSimUssdCommand = new EnumMap<>(Country.class);
       addCountryOperatorSimUssdCommand();
     }
     return countryOperatorSimUssdCommand;
@@ -22,13 +35,37 @@ public class SimUssdFactory {
   }
 
   private static void addRussianCountryOperatorSimUssdCommand() {
-    Map<Integer, SimUssdCommand> simUssdCommandMap = new HashMap<>();
-    simUssdCommandMap.put(1, new SimUssdCommand("*111*0887#"));
-    simUssdCommandMap.put(2, new SimUssdCommand("*201#"));
-    simUssdCommandMap.put(13, new SimUssdCommand("*111*0887#"));
-    simUssdCommandMap.put(20, new SimUssdCommand("*201#"));
-    simUssdCommandMap.put(28, new SimUssdCommand("*111*0887#"));
-    simUssdCommandMap.put(99, new SimUssdCommand("*111*0887#"));
-    countryOperatorSimUssdCommand.put(250, simUssdCommandMap);
+    Map<SimOperator, SimUssdCommand> simUssdCommandMap = new EnumMap<>(SimOperator.class);
+    simUssdCommandMap.put(MTC, new SimUssdCommand("*111*0887#"));
+    simUssdCommandMap.put(MEGAFON, new SimUssdCommand("*201#"));
+    simUssdCommandMap.put(KUBGSM, new SimUssdCommand("*111*0887#"));
+    simUssdCommandMap.put(TELE2, new SimUssdCommand("*201#"));
+    simUssdCommandMap.put(BEELINE28, new SimUssdCommand("*111*0887#"));
+    simUssdCommandMap.put(BEELINE99, new SimUssdCommand("*111*0887#"));
+    countryOperatorSimUssdCommand.put(RUSSIA, simUssdCommandMap);
+  }
+
+  @Nullable
+  public static Country getCountryByCode(int countryCode) {
+    for (Country country : countryOperatorSimUssdCommand.keySet()) {
+      if (country.getCode() == countryCode) {
+        return country;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public static SimOperator containsCountryAndOperator(int countryCode, int operatorCode) {
+    Country country = getCountryByCode(countryCode);
+    if (country == null) {
+      return null;
+    }
+    for (SimOperator simOperator : countryOperatorSimUssdCommand.get(country).keySet()) {
+      if (simOperator.getCode() == operatorCode) {
+        return simOperator;
+      }
+    }
+    return null;
   }
 }
