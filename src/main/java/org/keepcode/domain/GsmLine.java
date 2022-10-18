@@ -16,16 +16,16 @@ public class GsmLine {
   private final String imsi;
 
   private final String operator;
-  private final String num;
+  private final Long phoneNum;
 
   public GsmLine(int port, @NotNull String password, @NotNull String status, @NotNull String imsi,
-                 @NotNull String operator, @NotNull String num) {
+                 @NotNull String operator, @NotNull Long phoneNum) {
     this.port = port;
     this.password = password;
     this.status = getLineStatus(status);
     this.imsi = imsi;
     this.operator = operator;
-    this.num = num;
+    this.phoneNum = phoneNum;
   }
 
   @NotNull
@@ -65,7 +65,7 @@ public class GsmLine {
   }
 
   @NotNull
-  public String getNum() {
-    return num;
+  public Long getPhoneNum() {
+    return phoneNum;
   }
 }

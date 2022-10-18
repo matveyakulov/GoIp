@@ -279,7 +279,7 @@ public class GsmService {
       if (currentLine != null && !currentLine.getPassword().equals(password)) {
         ansStatus = UN_CORRECT_ANSWER_PASSWORD;
       }
-      GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, num);
+      GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, Long.parseLong(num));
       hostLineInfo.get(host).put(lineId, gsmLine);
       sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
       if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.ACTIVE) {
