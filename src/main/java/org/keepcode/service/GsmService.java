@@ -266,34 +266,33 @@ public class GsmService {
 
   private static void handleKeepAlive(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
     Matcher matcher = KEEP_ALIVE_PARAM_PATTERN.matcher(receivedData);
-    if (matcher.find()) {
-      String lineId = matcher.group("id");
-      String password = matcher.group("pass");
-      String num = matcher.group("num");
-      String gsmStatus = matcher.group("gsmStatus");
-      long imsi = Long.parseLong(matcher.group("imsi"));
-      String operator = matcher.group("operator");  // пока нигде его не использую, по идее графику надо будет допилить, но там непонятно надо ли
-      int ansStatus = CORRECT_ANSWER_PASSWORD;
-      hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
-      GsmLine currentLine = hostLineInfo.get(host).get(lineId);
-      if (currentLine != null && !currentLine.getPassword().equals(password)) {
-        ansStatus = UN_CORRECT_ANSWER_PASSWORD;
-      }
-      Long longNum;
-      try {
-        longNum = Long.parseLong(num);
-      } catch (Exception e) {
-        longNum = null;
-      }
-      GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
-      hostLineInfo.get(host).put(lineId, gsmLine);
-      sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
-      if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.LOGIN) {
-        setNumber(host, lineId, imsi, password);
-      }
-    } else {
+    if (!matcher.find()) {
       throw new Exception(String.format("Не удалось обработать keepAlive: %s, потому что не найдено ничего по паттерну %s",
         receivedData, KEEP_ALIVE_PARAM_PATTERN.pattern()));
+    }
+    String lineId = matcher.group("id");
+    String password = matcher.group("pass");
+    String num = matcher.group("num");
+    String gsmStatus = matcher.group("gsmStatus");
+    long imsi = Long.parseLong(matcher.group("imsi"));
+    String operator = matcher.group("operator");  // пока нигде его не использую, по идее графику надо будет допилить, но там непонятно надо ли
+    int ansStatus = CORRECT_ANSWER_PASSWORD;
+    hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
+    GsmLine currentLine = hostLineInfo.get(host).get(lineId);
+    if (currentLine != null && !currentLine.getPassword().equals(password)) {
+      ansStatus = UN_CORRECT_ANSWER_PASSWORD;
+    }
+    Long longNum;
+    try {
+      longNum = Long.parseLong(num);
+    } catch (Exception e) {
+      longNum = null;
+    }
+    GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
+    hostLineInfo.get(host).put(lineId, gsmLine);
+    sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
+    if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.LOGIN) {
+      setNumber(host, lineId, imsi, password);
     }
   }
 
@@ -330,24 +329,25 @@ public class GsmService {
   private static void handleReceiveMsg(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
     Matcher matcher = RECEIVE_PATTERN.matcher(receivedData);
     if (matcher.find()) {
-      String msg = matcher.group("msg");
-      try {
-        String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, msg, "phone")
-          .replaceAll("[+()\\-\\s*]", "");
-        String lineId = matcher.group("id");
-        String password = matcher.group("password");
-        new Thread(() -> {
-          String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
-          if (setGsmNumAnswer.toLowerCase().contains("ok")) {
-            System.out.printf("На линии %s номер изменен на %s%n", lineId, phone);
-          }
-        }).start();
-      } catch (Exception e) {
-        System.out.printf("В сообщении %s номер не распознан", msg); // весь лог этим засрется, но хз как еще обработать
-      }
-      write(String.format(RECEIVE_SMS_MSG, msg, port));
-      sendAnswer(host, String.format(RECEIVE_OK_MSG, parseSendId(receivedData)), port);
+      return;
     }
+    String msg = matcher.group("msg");
+    try {
+      String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, msg, "phone")
+        .replaceAll("[+()\\-\\s*]", "");
+      String lineId = matcher.group("id");
+      String password = matcher.group("password");
+      new Thread(() -> {
+        String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
+        if (setGsmNumAnswer.toLowerCase().contains("ok")) {
+          System.out.printf("На линии %s номер изменен на %s%n", lineId, phone);
+        }
+      }).start();
+    } catch (Exception e) {
+      System.out.printf("В сообщении %s номер не распознан", msg); // весь лог этим засрется, но хз как еще обработать
+    }
+    write(String.format(RECEIVE_SMS_MSG, msg, port));
+    sendAnswer(host, String.format(RECEIVE_OK_MSG, parseSendId(receivedData)), port);
   }
 
   @NotNull
