@@ -25,20 +25,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.keepcode.util.CommandStrings.DONE;
-import static org.keepcode.util.CommandStrings.GET_GSM_NUM;
-import static org.keepcode.util.CommandStrings.MSG;
-import static org.keepcode.util.CommandStrings.PASSWORD;
-import static org.keepcode.util.CommandStrings.RECEIVE_OK_MSG;
-import static org.keepcode.util.CommandStrings.REG_STATUS_MSG;
-import static org.keepcode.util.CommandStrings.SEND;
-import static org.keepcode.util.CommandStrings.SET_GSM_NUM;
-import static org.keepcode.util.CommandStrings.STATE_OK_MSG;
-import static org.keepcode.util.CommandStrings.SVR_REBOOT_DEV;
-import static org.keepcode.util.CommandStrings.SVR_REBOOT_MODULE;
-import static org.keepcode.util.CommandStrings.USSD;
-import static org.keepcode.util.MessageStrings.RECEIVE_CALL_MSG;
-import static org.keepcode.util.MessageStrings.RECEIVE_SMS_MSG;
+import static org.keepcode.helpstring.CommandStrings.DONE;
+import static org.keepcode.helpstring.CommandStrings.GET_GSM_NUM;
+import static org.keepcode.helpstring.CommandStrings.MSG;
+import static org.keepcode.helpstring.CommandStrings.PASSWORD;
+import static org.keepcode.helpstring.CommandStrings.RECEIVE_OK_MSG;
+import static org.keepcode.helpstring.CommandStrings.REG_STATUS_MSG;
+import static org.keepcode.helpstring.CommandStrings.SEND;
+import static org.keepcode.helpstring.CommandStrings.SET_GSM_NUM;
+import static org.keepcode.helpstring.CommandStrings.STATE_OK_MSG;
+import static org.keepcode.helpstring.CommandStrings.SVR_REBOOT_DEV;
+import static org.keepcode.helpstring.CommandStrings.SVR_REBOOT_MODULE;
+import static org.keepcode.helpstring.CommandStrings.USSD;
+import static org.keepcode.helpstring.MessageStrings.RECEIVE_CALL_MSG;
+import static org.keepcode.helpstring.MessageStrings.RECEIVE_SMS_MSG;
 import static org.keepcode.writer.ReceiveWriter.write;
 
 public class GsmService {
@@ -47,11 +47,7 @@ public class GsmService {
 
   private static final Map<String, Map<String, GsmLine>> hostLineInfo = new HashMap<>();
 
-  //todo зачем тут INCOMING. У тебя в проекте уже есть другая регулярка для телефона
-  private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("INCOMING:(?<phone>.+)");
-
-  //todo так она некорректная (проверь внимательно использование)
-  private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("(?<phone>[+\\-)(\\s\\d]{9,})");  // я использую его во всех входящих запросах, так что какой-то херни типа (((((((( быть не может
+  private static final Pattern PHONE_NUMBER_FROM_RESPONSE_PATTERN = Pattern.compile("(?<phone>[+\\-)(\\s\\d]{9,})");  // я использую его во всех входящих запросах, так что какой-то херни типа (((((((( быть не может
 
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
@@ -66,8 +62,7 @@ public class GsmService {
 
   private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.*\\s+(?<errorMsg>.+)$");
 
-  //todo там же код 2 или 3
-  private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d+)\\d{10}");
+  private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d{2,3})\\d{10}");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
@@ -224,8 +219,7 @@ public class GsmService {
           responseBuilder.append(String.format("На номер %s смс успешно отправлено\n", validPhones.get(i)));
         }
       }
-      //todo ответа на команду нет?
-      sendCommandAndGetFullAnswer(host, String.format(DONE, sendId), port);
+      sendAnswer(host, String.format(DONE, sendId), port); // ответ на команду есть, но он не интересует
       return responseBuilder.toString();
     } catch (Exception e) {
       responseBuilder.append(String.format("Все закончилось с ошибкой: %s\n", e.getMessage()));
@@ -277,7 +271,7 @@ public class GsmService {
       String password = matcher.group("pass");
       String num = matcher.group("num");
       String gsmStatus = matcher.group("gsmStatus");
-      int imsi = Integer.parseInt(matcher.group("imsi"));
+      long imsi = Long.parseLong(matcher.group("imsi"));
       String operator = matcher.group("operator");  // пока нигде его не использую, по идее графику надо будет допилить, но там непонятно надо ли
       int ansStatus = CORRECT_ANSWER_PASSWORD;
       hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
@@ -294,9 +288,8 @@ public class GsmService {
       GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
       hostLineInfo.get(host).put(lineId, gsmLine);
       sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
-      if (gsmLine.getStatus() == LineStatus.LOGIN && lineId.equals("goip01")) {
-        //todo чем тут новый поток оправдан?
-        new Thread(() -> setNumber(host, lineId, imsi, password)).start();
+      if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.LOGIN) {
+        setNumber(host, lineId, imsi, password);
       }
     } else {
       throw new Exception(String.format("Не удалось обработать keepAlive: %s, потому что не найдено ничего по паттерну %s",
@@ -306,14 +299,9 @@ public class GsmService {
 
   private static void handleReceiveCall(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
     if (receivedData.contains("INCOMING")) {
-      write(String.format(RECEIVE_CALL_MSG, getNumber(receivedData), port));
+      write(String.format(RECEIVE_CALL_MSG, matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, receivedData, "phone"), port));
     }
     sendAnswer(host, String.format(STATE_OK_MSG, parseSendId(receivedData)), port);
-  }
-
-  @NotNull
-  private static String getNumber(@NotNull String text) throws Exception {
-    return matchPattern(PHONE_NUMBER_PATTERN, text, "phone");
   }
 
   @NotNull
@@ -344,8 +332,8 @@ public class GsmService {
     if (matcher.find()) {
       String msg = matcher.group("msg");
       try {
-        msg = msg.replaceAll("[+()\\-\\s*]", "");
-        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, msg, "phone");
+        String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, msg, "phone")
+          .replaceAll("[+()\\-\\s*]", "");
         String lineId = matcher.group("id");
         String password = matcher.group("password");
         new Thread(() -> {
@@ -371,36 +359,35 @@ public class GsmService {
     hostLineInfo.clear();
   }
 
-  public static void setNumber(@NotNull String host, @NotNull String lineId, int imsi, @NotNull String password) {
+  public static void setNumber(@NotNull String host, @NotNull String lineId, long imsi, @NotNull String password) {
     Matcher matcher = IMSI_PATTERN.matcher(String.valueOf(imsi));
-    //todo тут можно было избежать такой вложенности
-    if (matcher.find()) {
-      int countryCode = Integer.parseInt(matcher.group("countryCode"));
-      int operatorCode = Integer.parseInt(matcher.group("operatorCode"));
-      Country country = SimUssdFactory.getCountryByCode(countryCode);
-      if (country == null) {
-        System.out.println("Не поддерживаемая страна с кодом: " + countryCode);
-        return;
-      }
-      SimOperator simOperator = SimUssdFactory.containsCountryAndOperatorCode(country, operatorCode);
-      if (simOperator == null) {
-        System.out.printf("Не поддерживаемый оператор с кодом: %s в стране с кодом: %s%n", operatorCode, countryCode);
-        return;
-      }
-      String ussdAnswer = sendUssd(host, lineId,
-        countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password);
-      try {
-        String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, ussdAnswer, "phone");
-        phone = phone.replaceAll("[+()\\-\\s]", "");
-        String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
-        if (setGsmNumAnswer.toLowerCase().contains("ok")) {
-          System.out.printf("На линии %s номер изменен на %s", lineId, phone);
-        }
-      } catch (Exception e) {
-        System.out.println(e.getMessage());
-      }
-    } else {
+    if (!matcher.find()) {
       System.out.printf("Ничего не найдено в imsi %s по паттерну %s%n", imsi, IMSI_PATTERN.pattern());
+      return;
+    }
+    int countryCode = Integer.parseInt(matcher.group("countryCode"));
+    int operatorCode = Integer.parseInt(matcher.group("operatorCode"));
+    Country country = SimUssdFactory.getCountryByCode(countryCode);
+    if (country == null) {
+      System.out.println("Не поддерживаемая страна с кодом: " + countryCode);
+      return;
+    }
+    SimOperator simOperator = SimUssdFactory.containsCountryAndOperatorCode(country, operatorCode);
+    if (simOperator == null) {
+      System.out.printf("Не поддерживаемый оператор с кодом: %s в стране с кодом: %s%n", operatorCode, countryCode);
+      return;
+    }
+    String ussdAnswer = sendUssd(host, lineId,
+      countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password);
+    try {
+      String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, ussdAnswer, "phone")
+        .replaceAll("[+()\\-\\s]", "");
+      String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
+      if (setGsmNumAnswer.toLowerCase().contains("ok")) {
+        System.out.printf("На линии %s номер изменен на %s", lineId, phone);
+      }
+    } catch (Exception e) {
+      System.out.println(e.getMessage());
     }
   }
 }

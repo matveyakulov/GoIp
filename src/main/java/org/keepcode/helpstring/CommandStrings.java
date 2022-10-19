@@ -1,6 +1,5 @@
-package org.keepcode.util;
+package org.keepcode.helpstring;
 
-//todo util ли это
 public class CommandStrings {
 
   public static final String SVR_REBOOT_DEV = "svr_reboot_dev %d %s";

@@ -10,13 +10,12 @@ public class GsmLine {
   private final String password;
   private final LineStatus status;
 
-  //todo !?
-  private final int imsi;
+  private final long imsi;
 
   private final String operator;
   private final Long phoneNum;
 
-  public GsmLine(int port, @NotNull String password, @NotNull String status, int imsi,
+  public GsmLine(int port, @NotNull String password, @NotNull String status, long imsi,
                  @NotNull String operator, @Nullable Long phoneNum) {
     this.port = port;
     this.password = password;
@@ -49,7 +48,7 @@ public class GsmLine {
     return status;
   }
 
-  public int getImsi() {
+  public long getImsi() {
     return imsi;
   }
 

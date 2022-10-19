@@ -2,7 +2,6 @@ package org.keepcode.enums;
 
 import org.jetbrains.annotations.NotNull;
 
-//todo форматирование отступов
 public enum LineStatus {
 
   LOGIN("Активна"),
