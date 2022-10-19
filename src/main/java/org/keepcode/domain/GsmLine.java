@@ -10,6 +10,7 @@ public class GsmLine {
   private final String password;
   private final LineStatus status;
 
+  //todo !?
   private final int imsi;
 
   private final String operator;

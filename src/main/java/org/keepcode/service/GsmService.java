@@ -47,8 +47,10 @@ public class GsmService {
 
   private static final Map<String, Map<String, GsmLine>> hostLineInfo = new HashMap<>();
 
+  //todo зачем тут INCOMING. У тебя в проекте уже есть другая регулярка для телефона
   private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("INCOMING:(?<phone>.+)");
 
+  //todo так она некорректная (проверь внимательно использование)
   private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("(?<phone>[+\\-)(\\s\\d]{9,})");  // я использую его во всех входящих запросах, так что какой-то херни типа (((((((( быть не может
 
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
@@ -64,6 +66,7 @@ public class GsmService {
 
   private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.*\\s+(?<errorMsg>.+)$");
 
+  //todo там же код 2 или 3
   private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d+)\\d{10}");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
@@ -221,6 +224,7 @@ public class GsmService {
           responseBuilder.append(String.format("На номер %s смс успешно отправлено\n", validPhones.get(i)));
         }
       }
+      //todo ответа на команду нет?
       sendCommandAndGetFullAnswer(host, String.format(DONE, sendId), port);
       return responseBuilder.toString();
     } catch (Exception e) {
@@ -291,6 +295,7 @@ public class GsmService {
       hostLineInfo.get(host).put(lineId, gsmLine);
       sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
       if (gsmLine.getStatus() == LineStatus.LOGIN && lineId.equals("goip01")) {
+        //todo чем тут новый поток оправдан?
         new Thread(() -> setNumber(host, lineId, imsi, password)).start();
       }
     } else {
@@ -368,6 +373,7 @@ public class GsmService {
 
   public static void setNumber(@NotNull String host, @NotNull String lineId, int imsi, @NotNull String password) {
     Matcher matcher = IMSI_PATTERN.matcher(String.valueOf(imsi));
+    //todo тут можно было избежать такой вложенности
     if (matcher.find()) {
       int countryCode = Integer.parseInt(matcher.group("countryCode"));
       int operatorCode = Integer.parseInt(matcher.group("operatorCode"));
