@@ -328,7 +328,7 @@ public class GsmService {
 
   private static void handleReceiveMsg(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
     Matcher matcher = RECEIVE_PATTERN.matcher(receivedData);
-    if (matcher.find()) {
+    if (!matcher.find()) {
       return;
     }
     String msg = matcher.group("msg");
