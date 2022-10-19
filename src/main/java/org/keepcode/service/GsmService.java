@@ -47,20 +47,20 @@ public class GsmService {
 
   private static final Map<String, Map<String, GsmLine>> hostLineInfo = new HashMap<>();
 
-  private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("\\+\\d+");
+  private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("INCOMING:(?<phone>.+)");
 
   private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("(?<phone>\\d{9,})");
 
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
-  private static final Pattern FIRST_COMMAND_PATTERN = Pattern.compile("(?<first>^\\w+)");
+  private static final Pattern FIRST_WORD_COMMAND_PATTERN = Pattern.compile("(?<first>^\\w+)");
 
   private static final Pattern KEEP_ALIVE_PARAM_PATTERN = Pattern.compile(".*id:(?<id>.+);pass:(?<pass>.+);" +
     "num:(?<num>[+()\\-\\s\\d]*);signal.*gsm_status:(?<gsmStatus>\\w*);.*imsi:(?<imsi>\\d+);iccid.*pro:(?<operator>\\w*);idle");
 
   private static final Pattern RECEIVE_PATTERN = Pattern.compile("id:(?<id>.+);password:(?<password>.+);srcnum.*msg:(?<msg>.+)");
 
-  private static final Pattern AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+\\s?(?<answer>.*)");
+  private static final Pattern ANSWER_AFTER_SEND_ID_PATTERN = Pattern.compile("\\d+\\s?(?<answer>.*)");
 
   private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.*\\s+(?<errorMsg>.+)$");
 
@@ -124,7 +124,7 @@ public class GsmService {
   @NotNull
   public static String sendCommandAndGetInfoAfterSendId(@NotNull String host, @NotNull String command, int port) {
     try {
-      return matchPattern(AFTER_SEND_ID_PATTERN, sendCommandAndGetFullAnswer(host, command, port), "answer");
+      return matchPattern(ANSWER_AFTER_SEND_ID_PATTERN, sendCommandAndGetFullAnswer(host, command, port), "answer");
     } catch (Exception e) {
       return e.getMessage();
     }
@@ -236,7 +236,7 @@ public class GsmService {
           DatagramPacket receivingPacket = getReceivingPacket();
           clientSocket.receive(receivingPacket);
           String receivedData = getAnswerFromPacket(receivingPacket);
-          String prefix = matchPattern(FIRST_COMMAND_PATTERN, receivedData, "first");
+          String prefix = matchPattern(FIRST_WORD_COMMAND_PATTERN, receivedData, "first");
           String host = receivingPacket.getAddress().getHostAddress();
           switch (prefix) {
             case "req":
@@ -308,17 +308,12 @@ public class GsmService {
 
   @NotNull
   private static String getNumber(@NotNull String text) throws Exception {
-    return matchPattern(PHONE_NUMBER_PATTERN, text);
+    return matchPattern(PHONE_NUMBER_PATTERN, text, "phone");
   }
 
   @NotNull
   private static String parseSendId(@NotNull String text) throws Exception {
     return matchPattern(SEND_ID_PATTERN, text, "sendId");
-  }
-
-  @NotNull
-  public static String matchPattern(@NotNull Pattern pattern, @NotNull String text) throws Exception {
-    return matchPattern(pattern, text, null);
   }
 
   @NotNull
@@ -381,7 +376,7 @@ public class GsmService {
         System.out.println("Не поддерживаемая страна с кодом: " + countryCode);
         return;
       }
-      SimOperator simOperator = SimUssdFactory.containsCountryAndOperator(countryCode, operatorCode);
+      SimOperator simOperator = SimUssdFactory.containsCountryAndOperatorCode(country, operatorCode);
       if (simOperator == null) {
         System.out.printf("Не поддерживаемый оператор с кодом: %s в стране с кодом: %s%n", operatorCode, countryCode);
         return;
