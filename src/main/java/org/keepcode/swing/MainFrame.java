@@ -6,8 +6,16 @@ import org.keepcode.domain.GsmLine;
 import org.keepcode.service.GsmService;
 import org.keepcode.validate.Validator;
 
-import javax.swing.*;
-import java.awt.*;
+import javax.swing.Box;
+import javax.swing.ComboBoxModel;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+import java.awt.Dimension;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -21,7 +29,6 @@ public class MainFrame extends JFrame {
   private final Box numberInfoAnswer = Box.createHorizontalBox();
   private final Box rebootCommandAnswer = Box.createHorizontalBox();
   private final Box rebootLineCommandAnswer = Box.createHorizontalBox();
-
   private final Box setGsmNumCommandAnswer = Box.createHorizontalBox();
 
   private final Box sendSmsCommandAnswer = Box.createHorizontalBox();
@@ -73,11 +80,11 @@ public class MainFrame extends JFrame {
         try {
           Thread.sleep(35 * 1000);
         } catch (InterruptedException e) {
-          System.out.println("Поток не смог остановиться");
+          System.out.println("Поток не смог остановиться из-за ошибки: " + e.getMessage());
         }
         try {
           Map<String, Map<String, GsmLine>> hostLinesInfoNew = GsmService.getHostLineInfo();
-          if ((hostLinesInfoCurrent == null  || !hostLinesInfoCurrent.equals(hostLinesInfoNew) && !hostLinesInfoNew.isEmpty())) {
+          if ((hostLinesInfoCurrent == null || !hostLinesInfoCurrent.equals(hostLinesInfoNew) && !hostLinesInfoNew.isEmpty())) {
             hostLinesInfoCurrent = hostLinesInfoNew;
             hostLinesInfoCurrent.put("123", new HashMap<>());  // это чтобы был еще один хост для теста
             String currentHost = hostComboBox.getSelectedItem() != null ?

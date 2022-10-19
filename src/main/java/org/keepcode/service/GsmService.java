@@ -49,7 +49,7 @@ public class GsmService {
 
   private static final Pattern PHONE_NUMBER_PATTERN = Pattern.compile("INCOMING:(?<phone>.+)");
 
-  private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("(?<phone>\\d{9,})");
+  private static final Pattern PHONE_NUMBER_FROM_USSD_PATTERN = Pattern.compile("(?<phone>[+\\-)(\\s\\d]{9,})");  // я использую его во всех входящих запросах, так что какой-то херни типа (((((((( быть не может
 
   private static final Pattern SEND_ID_PATTERN = Pattern.compile("(?<sendId>-?\\d+)");
 
@@ -290,7 +290,7 @@ public class GsmService {
       GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
       hostLineInfo.get(host).put(lineId, gsmLine);
       sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
-      if (gsmLine.getStatus() == LineStatus.ACTIVE && lineId.equals("goip01")) {
+      if (gsmLine.getStatus() == LineStatus.LOGIN && lineId.equals("goip01")) {
         new Thread(() -> setNumber(host, lineId, imsi, password)).start();
       }
     } else {
@@ -384,8 +384,8 @@ public class GsmService {
       String ussdAnswer = sendUssd(host, lineId,
         countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password);
       try {
-        ussdAnswer = ussdAnswer.replaceAll("[+()\\-\\s]", "");
         String phone = matchPattern(PHONE_NUMBER_FROM_USSD_PATTERN, ussdAnswer, "phone");
+        phone = phone.replaceAll("[+()\\-\\s]", "");
         String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
         if (setGsmNumAnswer.toLowerCase().contains("ok")) {
           System.out.printf("На линии %s номер изменен на %s", lineId, phone);

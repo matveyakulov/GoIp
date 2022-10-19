@@ -56,11 +56,7 @@ public class SimUssdFactory {
   }
 
   @Nullable
-  public static SimOperator containsCountryAndOperator(int countryCode, int operatorCode) {
-    Country country = getCountryByCode(countryCode);
-    if (country == null) {
-      return null;
-    }
+  public static SimOperator containsCountryAndOperatorCode(@NotNull Country country, int operatorCode) {
     for (SimOperator simOperator : countryOperatorSimUssdCommand.get(country).keySet()) {
       if (simOperator.getCode() == operatorCode) {
         return simOperator;

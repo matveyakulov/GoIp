@@ -4,10 +4,9 @@ import org.jetbrains.annotations.NotNull;
 
 public enum LineStatus {
 
-  ACTIVE("Активна"),
+  LOGIN("Активна"),
 
-  UN_ACTIVE("Не активна"),
-
+  LOGOUT("Не активна"),
   UNKNOWN("Неизвестно");
 
   private final String status;

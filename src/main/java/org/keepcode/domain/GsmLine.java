@@ -4,10 +4,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.keepcode.enums.LineStatus;
 
-import static org.keepcode.enums.LineStatus.ACTIVE;
-import static org.keepcode.enums.LineStatus.UNKNOWN;
-import static org.keepcode.enums.LineStatus.UN_ACTIVE;
-
 public class GsmLine {
 
   private final int port;
@@ -31,13 +27,10 @@ public class GsmLine {
 
   @NotNull
   private LineStatus getLineStatus(@NotNull String status) {
-    switch (status) {
-      case "LOGIN":
-        return ACTIVE;
-      case "LOGOUT":
-        return UN_ACTIVE;
-      default:
-        return UNKNOWN;
+    try {
+      return LineStatus.valueOf(status);
+    } catch (Exception e){
+      return LineStatus.UNKNOWN;
     }
   }
 
