@@ -243,7 +243,7 @@ public class GsmService {
           String receivedData = getAnswerFromPacket(receivingPacket);
           String host = receivingPacket.getAddress().getHostAddress();
           if (!isAvailableHost(host)) {
-            System.out.printf("Доступ запрещен для хоста %s и команды %s", host, receivedData);
+            System.out.printf("Отклонена команда %s для хоста %s", receivedData, host);
             continue;
           }
           String prefix = matchPattern(FIRST_WORD_COMMAND_PATTERN, receivedData, "first");
@@ -280,7 +280,6 @@ public class GsmService {
       String info = HttpUtil.getInfoDeviceBody(host);
       Matcher matcher = DEVICE_INFO_PATTERN.matcher(info);
       if (!matcher.find()) {
-        System.out.printf("Доступ запрещен для %s, потому что пришло: %s", host, info);
         return false;
       }
       String serialNumber = matcher.group("sn");
