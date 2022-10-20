@@ -2,6 +2,8 @@ package org.keepcode.service;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.keepcode.db.AgentDB;
+import org.keepcode.domain.DeviceInfo;
 import org.keepcode.domain.GsmLine;
 import org.keepcode.domain.SimUssdCommand;
 import org.keepcode.enums.Country;
@@ -10,9 +12,11 @@ import org.keepcode.enums.SimOperator;
 import org.keepcode.factory.DatagramSocketFactory;
 import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.factory.SimUssdFactory;
+import org.keepcode.util.HttpUtil;
 import org.keepcode.util.PropUtil;
 import org.keepcode.validate.Validator;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.UnknownHostException;
@@ -63,6 +67,9 @@ public class GsmService {
   private static final Pattern ERROR_PATTERN = Pattern.compile("ERROR.*\\s+(?<errorMsg>.+)$");
 
   private static final Pattern IMSI_PATTERN = Pattern.compile("(?<countryCode>\\d{3})(?<operatorCode>\\d{2,3})\\d{10}");
+
+  private static final Pattern DEVICE_INFO_PATTERN = Pattern.compile("<sn>(?<sn>\\w+)</sn>.*" +
+    "<version>(?<version>[\\w-.]+)</version>.*<model>(?<model>\\w+)</model>");
 
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
@@ -234,8 +241,11 @@ public class GsmService {
           DatagramPacket receivingPacket = getReceivingPacket();
           clientSocket.receive(receivingPacket);
           String receivedData = getAnswerFromPacket(receivingPacket);
-          String prefix = matchPattern(FIRST_WORD_COMMAND_PATTERN, receivedData, "first");
           String host = receivingPacket.getAddress().getHostAddress();
+          if (!isAvailableHost(host)) {
+            continue;
+          }
+          String prefix = matchPattern(FIRST_WORD_COMMAND_PATTERN, receivedData, "first");
           switch (prefix) {
             case "req":
               handleKeepAlive(host, receivedData, receivingPacket.getPort());
@@ -262,6 +272,24 @@ public class GsmService {
   @NotNull
   private static String getAnswerFromPacket(@NotNull DatagramPacket receivingPacket) {
     return new String(receivingPacket.getData()).trim();
+  }
+
+  private static boolean isAvailableHost(@NotNull String host) {
+    try {
+      String info = HttpUtil.getInfoDeviceBody(host);
+      Matcher matcher = DEVICE_INFO_PATTERN.matcher(info);
+      if (!matcher.find()) {
+        System.out.printf("Доступ запрещен для %s, потому что пришло: %s", host, info);
+        return false;
+      }
+      String sn = matcher.group("sn");
+      String version = matcher.group("version");
+      String model = matcher.group("model");
+      return AgentDB.containsHostAndDeviceInfo(host, new DeviceInfo(sn, version, model));
+    } catch (IOException e) {
+      System.out.println(e.getMessage());
+      return false;
+    }
   }
 
   private static void handleKeepAlive(@NotNull String host, @NotNull String receivedData, int port) throws Exception {
