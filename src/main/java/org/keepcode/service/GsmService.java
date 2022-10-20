@@ -243,6 +243,7 @@ public class GsmService {
           String receivedData = getAnswerFromPacket(receivingPacket);
           String host = receivingPacket.getAddress().getHostAddress();
           if (!isAvailableHost(host)) {
+            System.out.printf("Доступ запрещен для хоста %s и команды %s", host, receivedData);
             continue;
           }
           String prefix = matchPattern(FIRST_WORD_COMMAND_PATTERN, receivedData, "first");
@@ -282,10 +283,10 @@ public class GsmService {
         System.out.printf("Доступ запрещен для %s, потому что пришло: %s", host, info);
         return false;
       }
-      String sn = matcher.group("sn");
+      String serialNumber = matcher.group("sn");
       String version = matcher.group("version");
       String model = matcher.group("model");
-      return AgentDB.containsHostAndDeviceInfo(host, new DeviceInfo(sn, version, model));
+      return AgentDB.containsHostAndDeviceInfo(host, new DeviceInfo(serialNumber, version, model));
     } catch (IOException e) {
       System.out.println(e.getMessage());
       return false;

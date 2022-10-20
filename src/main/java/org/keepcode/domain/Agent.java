@@ -2,18 +2,21 @@ package org.keepcode.domain;
 
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Agent {
 
   private final String name;
 
   private final String host;
 
-  private final DeviceInfo deviceInfo;
+  private final List<DeviceInfo> devicesInfo;
 
-  public Agent(String name, String host, DeviceInfo deviceInfo) {
+  public Agent(String name, String host) {
     this.name = name;
     this.host = host;
-    this.deviceInfo = deviceInfo;
+    this.devicesInfo = new ArrayList<>();
   }
 
   @NotNull
@@ -27,7 +30,7 @@ public class Agent {
   }
 
   @NotNull
-  public DeviceInfo getDeviceInfo() {
-    return deviceInfo;
+  public List<DeviceInfo> getDevicesInfo() {
+    return devicesInfo;
   }
 }
