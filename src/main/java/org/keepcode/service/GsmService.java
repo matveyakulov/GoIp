@@ -29,18 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.keepcode.helpstring.CommandStrings.DONE;
-import static org.keepcode.helpstring.CommandStrings.GET_GSM_NUM;
-import static org.keepcode.helpstring.CommandStrings.MSG;
-import static org.keepcode.helpstring.CommandStrings.PASSWORD;
-import static org.keepcode.helpstring.CommandStrings.RECEIVE_OK_MSG;
-import static org.keepcode.helpstring.CommandStrings.REG_STATUS_MSG;
-import static org.keepcode.helpstring.CommandStrings.SEND;
-import static org.keepcode.helpstring.CommandStrings.SET_GSM_NUM;
-import static org.keepcode.helpstring.CommandStrings.STATE_OK_MSG;
-import static org.keepcode.helpstring.CommandStrings.SVR_REBOOT_DEV;
-import static org.keepcode.helpstring.CommandStrings.SVR_REBOOT_MODULE;
-import static org.keepcode.helpstring.CommandStrings.USSD;
+import static org.keepcode.helpstring.CommandStrings.*;
 import static org.keepcode.helpstring.MessageStrings.RECEIVE_CALL_MSG;
 import static org.keepcode.helpstring.MessageStrings.RECEIVE_SMS_MSG;
 import static org.keepcode.writer.ReceiveWriter.write;
@@ -80,7 +69,7 @@ public class GsmService {
   private static final int UN_CORRECT_ANSWER_PASSWORD = -1;
 
   private static final Map<Country, Map<SimOperator, SimUssdCommand>> countryOperatorSimUssdCommand =
-    SimUssdFactory.getAllAvailableCountryOperatorSimUssdCommand();
+    SimUssdFactory.getAllAvailableCountryOperatorSimUssdCommand();  //todo не должно быть здесь вообще
 
   @NotNull
   public static String reboot(@NotNull String host, @NotNull String lineId, @NotNull String password) {
@@ -103,19 +92,19 @@ public class GsmService {
     return sendCommandAndGetInfoAfterSendId(
       host,
       String.format(SVR_REBOOT_MODULE, getSendId(), password),
-      hostLineInfo.get(host).get(lineId).getPort());
+      );
   }
 
   @NotNull
   public static String sendUssd(@NotNull String host, @NotNull String lineId, @NotNull String ussd, @NotNull String password) {
     return sendCommandAndGetInfoAfterSendId(
       host,
-      String.format(USSD, getSendId(), password, ussd),
+      String.format(SEND_USSD, getSendId(), password, ussd),
       hostLineInfo.get(host).get(lineId).getPort());
   }
 
   @NotNull
-  public static String setGsmNum(@NotNull String host, @NotNull String lineId, @NotNull String num, @NotNull String password) {
+  public static String setGsmNum(@NotNull String host, @NotNull String lineId, @NotNull String num, @NotNull String password) {  // todo номер лонг
     return sendCommandAndGetInfoAfterSendId(
       host,
       String.format(SET_GSM_NUM, getSendId(), num, password),
@@ -137,7 +126,8 @@ public class GsmService {
 
   @NotNull
   public static String sendCommandAndGetFullAnswer(@NotNull String host, @NotNull String command, int port) throws Exception {
-    try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) {
+    hostLineInfo.get(host).get(lineId).getPort();
+    try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) { //todo здесь порт определять
       return sendCommandAndGetFullAnswer(host, clientSocket, command, port);
     }
   }
@@ -308,18 +298,19 @@ public class GsmService {
     hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
     GsmLine currentLine = hostLineInfo.get(host).get(lineId);
     if (currentLine != null && !currentLine.getPassword().equals(password)) {
-      ansStatus = UN_CORRECT_ANSWER_PASSWORD;
+      ansStatus = UN_CORRECT_ANSWER_PASSWORD;  //todo коде ответа
     }
-    Long longNum;
+    Long longNum; //todo обработку добавить
     try {
       longNum = Long.parseLong(num);
     } catch (Exception e) {
       longNum = null;
+      System.out.println("errof"); // todo
     }
     GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
-    hostLineInfo.get(host).put(lineId, gsmLine);
+    hostLineInfo.get(host).put(lineId, gsmLine); //todo get host
     sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
-    if (num.trim().equals("") && gsmLine.getStatus() == LineStatus.LOGIN) {
+    if (num.trim().isEmpty() && gsmLine.getStatus() == LineStatus.LOGIN) {
       setNumber(host, lineId, imsi, password);
     }
   }
@@ -406,10 +397,10 @@ public class GsmService {
       return;
     }
     String ussdAnswer = sendUssd(host, lineId,
-      countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password);
+      countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password); // todo сюда только нам инфо
     try {
       String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, ussdAnswer, "phone")
-        .replaceAll("[+()\\-\\s]", "");
+        .replaceAll("[+()\\-\\s]", ""); //todo дубликация реплейсов, сделать clear num string -> long
       String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
       if (setGsmNumAnswer.toLowerCase().contains("ok")) {
         System.out.printf("На линии %s номер изменен на %s", lineId, phone);

@@ -11,9 +11,9 @@ public class Agent {
 
   private final String host;
 
-  private final List<DeviceInfo> devicesInfo;
+  private final List<DeviceInfo> devicesInfo; // todo создать его сразу
 
-  public Agent(String name, String host) {
+  public Agent(String name, String host) { // todo notnull везде
     this.name = name;
     this.host = host;
     this.devicesInfo = new ArrayList<>();
@@ -30,7 +30,7 @@ public class Agent {
   }
 
   @NotNull
-  public List<DeviceInfo> getDevicesInfo() {
+  public List<DeviceInfo> getDeviceInfoList() {
     return devicesInfo;
   }
 }

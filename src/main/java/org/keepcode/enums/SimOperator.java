@@ -1,6 +1,6 @@
 package org.keepcode.enums;
 
-public enum SimOperator {
+public enum SimOperator { //todo imsi code operator
 
   MTC(1),
   MEGAFON(2),

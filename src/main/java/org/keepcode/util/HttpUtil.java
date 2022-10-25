@@ -20,7 +20,7 @@ public class HttpUtil {
   @NotNull
   public static String getInfoDeviceBody(@NotNull String ip) throws IOException {
     HttpURLConnection httpClient = getConnectionWithAuth(String.format(ROOT_URI, ip) + "/status.xml?type=base");
-    if (httpClient.getResponseCode() == 200) {
+    if (httpClient.getResponseCode() == HttpURLConnection.HTTP_OK) { //todo подумать над ответом 201 и 202 катит
       return readFromInputStream(httpClient.getInputStream());
     }
     throw new IOException(

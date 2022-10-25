@@ -5,7 +5,7 @@ import org.jetbrains.annotations.NotNull;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-public class InetAddressFactory {
+public class InetAddressFactory {  // todo drop
 
   @NotNull
   public static InetAddress getAddress(String host) throws UnknownHostException {

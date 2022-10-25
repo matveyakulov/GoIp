@@ -13,17 +13,17 @@ public class AgentDB {
 
   @NotNull
   private static List<Agent> getAvailableAgents() {
-    if (agents == null) {
+    if (agents == null) {  //todo drop, add static
       agents = new ArrayList<>();
       Agent agent = new Agent("Mat", "192.168.2.3");
-      agent.getDevicesInfo().add(new DeviceInfo("8MCDRM18047514", "GST1610-1.01-62-4", "GoIPx8"));
+      agent.getDeviceInfoList().add(new DeviceInfo("8MCDRM18047514", "GST1610-1.01-62-4", "GoIPx8"));
     }
     return agents;
   }
 
   public static boolean containsHostAndDeviceInfo(@NotNull String host, @NotNull DeviceInfo deviceInfo) {
     for (Agent agent : getAvailableAgents()) {
-      if (agent.getHost().equals(host) && agent.getDevicesInfo().contains(deviceInfo)) {
+      if (agent.getHost().equals(host) && agent.getDeviceInfoList().contains(deviceInfo)) {
         return true;
       }
     }

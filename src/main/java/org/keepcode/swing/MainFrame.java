@@ -101,10 +101,9 @@ public class MainFrame extends JFrame {
           revalidate();
           try {
             Thread.sleep(5 * 1000);
-          } catch (InterruptedException e) {
-            System.exit(-1);
+          } catch (InterruptedException ignored) {
           }
-          System.exit(-1);
+          System.exit(-1); //todo finally
         }
       }
     });

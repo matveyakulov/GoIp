@@ -22,7 +22,7 @@ public class SimUssdFactory {
   private static Map<Country, Map<SimOperator, SimUssdCommand>> countryOperatorSimUssdCommand;
 
   @NotNull
-  public static Map<Country, Map<SimOperator, SimUssdCommand>> getAllAvailableCountryOperatorSimUssdCommand() {
+  public static Map<Country, Map<SimOperator, SimUssdCommand>> getAllAvailableCountryOperatorSimUssdCommand() { //todo nullpointer may be
     if (countryOperatorSimUssdCommand == null) {
       countryOperatorSimUssdCommand = new EnumMap<>(Country.class);
       addCountryOperatorSimUssdCommand();
@@ -32,7 +32,7 @@ public class SimUssdFactory {
 
   private static void addCountryOperatorSimUssdCommand() {
     addRussianCountryOperatorSimUssdCommand();
-  }
+  }  //todo странная хрень
 
   private static void addRussianCountryOperatorSimUssdCommand() {
     Map<SimOperator, SimUssdCommand> simUssdCommandMap = new EnumMap<>(SimOperator.class);
@@ -46,7 +46,7 @@ public class SimUssdFactory {
   }
 
   @Nullable
-  public static Country getCountryByCode(int countryCode) {
+  public static Country getCountryByCode(int countryCode) {  //todo чекнуть на нулл
     for (Country country : countryOperatorSimUssdCommand.keySet()) {
       if (country.getCode() == countryCode) {
         return country;
@@ -56,7 +56,7 @@ public class SimUssdFactory {
   }
 
   @Nullable
-  public static SimOperator containsCountryAndOperatorCode(@NotNull Country country, int operatorCode) {
+  public static SimOperator containsCountryAndOperatorCode(@NotNull Country country, int operatorCode) { // todo нет обработки на county null
     for (SimOperator simOperator : countryOperatorSimUssdCommand.get(country).keySet()) {
       if (simOperator.getCode() == operatorCode) {
         return simOperator;
