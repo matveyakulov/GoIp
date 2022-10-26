@@ -15,23 +15,14 @@ public class GsmLine {
   private final String operator;
   private final Long phoneNum;
 
-  public GsmLine(int port, @NotNull String password, @NotNull String status, long imsi,
+  public GsmLine(int port, @NotNull String password, @NotNull LineStatus status, long imsi,
                  @NotNull String operator, @Nullable Long phoneNum) {
     this.port = port;
     this.password = password;
-    this.status = getLineStatus(status);
+    this.status = status;
     this.imsi = imsi;
     this.operator = operator;
     this.phoneNum = phoneNum;
-  }
-
-  @NotNull
-  private LineStatus getLineStatus(@NotNull String status) {
-    try {
-      return LineStatus.valueOf(status);
-    } catch (Exception e){
-      return LineStatus.UNKNOWN;
-    }
   }
 
   public int getPort() {

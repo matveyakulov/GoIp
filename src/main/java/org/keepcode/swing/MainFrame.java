@@ -102,8 +102,9 @@ public class MainFrame extends JFrame {
           try {
             Thread.sleep(5 * 1000);
           } catch (InterruptedException ignored) {
+          } finally {
+            System.exit(-1);
           }
-          System.exit(-1); //todo finally
         }
       }
     });
@@ -332,7 +333,7 @@ public class MainFrame extends JFrame {
       new Thread(() -> {
         if (isValidNum(number.getText()) && setGsmNumComboBox.getSelectedItem() != null) {
           String lineId = (String) setGsmNumComboBox.getSelectedItem();
-          String answer = GsmService.setGsmNum(host, lineId, number.getText(),
+          String answer = GsmService.setGsmNum(host, lineId, Long.parseLong(number.getText()),
             hostLinesInfoCurrent.get(host).get(lineId).getPassword());
           SwingUtilities.invokeLater(() -> {
             setGsmNumCommandAnswer.removeAll();

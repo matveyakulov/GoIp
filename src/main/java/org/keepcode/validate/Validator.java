@@ -10,7 +10,7 @@ public class Validator {
 
   public static boolean isValidNum(@NotNull String num) {
     return NUM_PATTERN.matcher(num).find();
-  } //todo с эксепшоном валидировать, а не чисто бул и реплэйс тут надо и длину проверить
+  }
 
   public static boolean isValidUssd(@NotNull String ussd) {
     return USSD_PATTERN.matcher(ussd).find();

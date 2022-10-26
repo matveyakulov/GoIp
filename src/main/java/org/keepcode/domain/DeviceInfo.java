@@ -1,5 +1,7 @@
 package org.keepcode.domain;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.Objects;
 
 public class DeviceInfo {
@@ -10,7 +12,7 @@ public class DeviceInfo {
 
   private final String model;
 
-  public DeviceInfo(String serialNumber, String firmware, String model) {
+  public DeviceInfo(@NotNull String serialNumber, @NotNull String firmware, @NotNull String model) {
     this.serialNumber = serialNumber;
     this.firmware = firmware;
     this.model = model;

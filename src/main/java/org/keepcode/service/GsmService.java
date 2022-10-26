@@ -5,12 +5,10 @@ import org.jetbrains.annotations.Nullable;
 import org.keepcode.db.AgentDB;
 import org.keepcode.domain.DeviceInfo;
 import org.keepcode.domain.GsmLine;
-import org.keepcode.domain.SimUssdCommand;
 import org.keepcode.enums.Country;
 import org.keepcode.enums.LineStatus;
 import org.keepcode.enums.SimOperator;
 import org.keepcode.factory.DatagramSocketFactory;
-import org.keepcode.factory.InetAddressFactory;
 import org.keepcode.factory.SimUssdFactory;
 import org.keepcode.util.HttpUtil;
 import org.keepcode.util.PropUtil;
@@ -19,6 +17,7 @@ import org.keepcode.validate.Validator;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -29,9 +28,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.keepcode.helpstring.CommandStrings.*;
-import static org.keepcode.helpstring.MessageStrings.RECEIVE_CALL_MSG;
-import static org.keepcode.helpstring.MessageStrings.RECEIVE_SMS_MSG;
+import static org.keepcode.helpstring.CommandStrings.RECEIVE_OK_MSG_ANSWER;
+import static org.keepcode.helpstring.CommandStrings.REG_STATUS_MSG_ANSWER;
+import static org.keepcode.helpstring.CommandStrings.SEND_DONE;
+import static org.keepcode.helpstring.CommandStrings.SEND_GET_GSM_NUM;
+import static org.keepcode.helpstring.CommandStrings.SEND_MSG;
+import static org.keepcode.helpstring.CommandStrings.SEND_MSG_COMMAND;
+import static org.keepcode.helpstring.CommandStrings.SEND_PASSWORD;
+import static org.keepcode.helpstring.CommandStrings.SEND_SET_GSM_NUM;
+import static org.keepcode.helpstring.CommandStrings.SEND_SVR_REBOOT_DEV;
+import static org.keepcode.helpstring.CommandStrings.SEND_SVR_REBOOT_MODULE;
+import static org.keepcode.helpstring.CommandStrings.SEND_USSD;
+import static org.keepcode.helpstring.CommandStrings.STATE_OK_MSG_ANSWER;
 import static org.keepcode.writer.ReceiveWriter.write;
 
 public class GsmService {
@@ -60,6 +68,9 @@ public class GsmService {
   private static final Pattern DEVICE_INFO_PATTERN = Pattern.compile("<sn>(?<sn>\\w+)</sn>.*" +
     "<version>(?<version>[\\w-.]+)</version>.*<model>(?<model>\\w+)</model>");
 
+  public static final String RECEIVE_CALL_MSG = "\nЗвонок с номера: %s на %s порт\n";
+  public static final String RECEIVE_SMS_MSG = "\nСмс '%s' пришло на %d порт\n";
+
   private static final Integer RECEIVED_DATA_BUFFER_SIZE = 8196;
 
   private static final AtomicInteger UID = new AtomicInteger(1);
@@ -68,30 +79,27 @@ public class GsmService {
 
   private static final int UN_CORRECT_ANSWER_PASSWORD = -1;
 
-  private static final Map<Country, Map<SimOperator, SimUssdCommand>> countryOperatorSimUssdCommand =
-    SimUssdFactory.getAllAvailableCountryOperatorSimUssdCommand();  //todo не должно быть здесь вообще
-
   @NotNull
   public static String reboot(@NotNull String host, @NotNull String lineId, @NotNull String password) {
     return sendCommandAndGetInfoAfterSendId(
       host,
-      String.format(SVR_REBOOT_DEV, getSendId(), password),
-      hostLineInfo.get(host).get(lineId).getPort());
+      String.format(SEND_SVR_REBOOT_DEV, getSendId(), password),
+      lineId);
   }
 
   @NotNull
   public static String numberInfo(@NotNull String host, @NotNull String lineId, @NotNull String password) {
     return sendCommandAndGetInfoAfterSendId(
       host,
-      String.format(GET_GSM_NUM, getSendId(), password),
-      hostLineInfo.get(host).get(lineId).getPort());
+      String.format(SEND_GET_GSM_NUM, getSendId(), password),
+      lineId);
   }
 
   @NotNull
   public static String lineReboot(@NotNull String host, @NotNull String lineId, @NotNull String password) {
     return sendCommandAndGetInfoAfterSendId(
       host,
-      String.format(SVR_REBOOT_MODULE, getSendId(), password),
+      String.format(SEND_SVR_REBOOT_MODULE, getSendId(), password), lineId
       );
   }
 
@@ -100,15 +108,15 @@ public class GsmService {
     return sendCommandAndGetInfoAfterSendId(
       host,
       String.format(SEND_USSD, getSendId(), password, ussd),
-      hostLineInfo.get(host).get(lineId).getPort());
+      lineId);
   }
 
   @NotNull
-  public static String setGsmNum(@NotNull String host, @NotNull String lineId, @NotNull String num, @NotNull String password) {  // todo номер лонг
+  public static String setGsmNum(@NotNull String host, @NotNull String lineId, long num, @NotNull String password) {
     return sendCommandAndGetInfoAfterSendId(
       host,
-      String.format(SET_GSM_NUM, getSendId(), num, password),
-      hostLineInfo.get(host).get(lineId).getPort());
+      String.format(SEND_SET_GSM_NUM, getSendId(), num, password),
+      lineId);
   }
 
   private static int getSendId() {
@@ -116,19 +124,18 @@ public class GsmService {
   }
 
   @NotNull
-  public static String sendCommandAndGetInfoAfterSendId(@NotNull String host, @NotNull String command, int port) {
+  public static String sendCommandAndGetInfoAfterSendId(@NotNull String host, @NotNull String command, @NotNull String lineId) {
     try {
-      return matchPattern(ANSWER_AFTER_SEND_ID_PATTERN, sendCommandAndGetFullAnswer(host, command, port), "answer");
+      return matchPattern(ANSWER_AFTER_SEND_ID_PATTERN, sendCommandAndGetFullAnswer(host, command, lineId), "answer");
     } catch (Exception e) {
       return e.getMessage();
     }
   }
 
   @NotNull
-  public static String sendCommandAndGetFullAnswer(@NotNull String host, @NotNull String command, int port) throws Exception {
-    hostLineInfo.get(host).get(lineId).getPort();
-    try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) { //todo здесь порт определять
-      return sendCommandAndGetFullAnswer(host, clientSocket, command, port);
+  public static String sendCommandAndGetFullAnswer(@NotNull String host, @NotNull String command, @NotNull String lineId) throws Exception {
+    try (DatagramSocket clientSocket = DatagramSocketFactory.getSocket()) {
+      return sendCommandAndGetFullAnswer(host, clientSocket, command, hostLineInfo.get(host).get(lineId).getPort());
     }
   }
 
@@ -148,7 +155,7 @@ public class GsmService {
   @NotNull
   private static DatagramPacket getSendingPacket(@NotNull String host, @NotNull String command, int port) throws UnknownHostException {
     byte[] commandBytes = command.getBytes();
-    return new DatagramPacket(commandBytes, commandBytes.length, InetAddressFactory.getAddress(host), port);
+    return new DatagramPacket(commandBytes, commandBytes.length, InetAddress.getByName(host), port);
   }
 
   @NotNull
@@ -182,7 +189,7 @@ public class GsmService {
       String answer = sendCommandAndGetFullAnswer(
         host,
         datagramSocket,
-        String.format(MSG, sendId, message.length(), message),
+        String.format(SEND_MSG, sendId, message.length(), message),
         port);
       if (answer.contains("ERROR")) {
         responseBuilder.append(String.format("Старт сессии завершился с ошибкой %s\n",
@@ -192,7 +199,7 @@ public class GsmService {
       answer = sendCommandAndGetFullAnswer(
         host,
         datagramSocket,
-        String.format(PASSWORD, sendId, gsmLine.getPassword()),
+        String.format(SEND_PASSWORD, sendId, gsmLine.getPassword()),
         port);
       if (answer.contains("ERROR")) {
         responseBuilder.append("Неверный пароль от линии, попробуйте позже еще раз\n");
@@ -202,7 +209,7 @@ public class GsmService {
         String sendAnswer = sendCommandAndGetFullAnswer(
           host,
           datagramSocket,
-          String.format(SEND, sendId, i + 1, validPhones.get(i)),
+          String.format(SEND_MSG_COMMAND, sendId, i + 1, validPhones.get(i)),
           port);
         if (sendAnswer.contains("WAIT")) {
           DatagramPacket receivingPacket = getReceivingPacket();
@@ -216,7 +223,7 @@ public class GsmService {
           responseBuilder.append(String.format("На номер %s смс успешно отправлено\n", validPhones.get(i)));
         }
       }
-      sendAnswer(host, String.format(DONE, sendId), port); // ответ на команду есть, но он не интересует
+      sendAnswer(host, String.format(SEND_DONE, sendId), port); // ответ на команду есть, но он не интересует
       return responseBuilder.toString();
     } catch (Exception e) {
       responseBuilder.append(String.format("Все закончилось с ошибкой: %s\n", e.getMessage()));
@@ -294,22 +301,21 @@ public class GsmService {
     String gsmStatus = matcher.group("gsmStatus");
     long imsi = Long.parseLong(matcher.group("imsi"));
     String operator = matcher.group("operator");  // пока нигде его не использую, по идее графику надо будет допилить, но там непонятно надо ли
-    int ansStatus = CORRECT_ANSWER_PASSWORD;
+    int answerCode = CORRECT_ANSWER_PASSWORD;
     hostLineInfo.computeIfAbsent(host, k -> new HashMap<>());
     GsmLine currentLine = hostLineInfo.get(host).get(lineId);
     if (currentLine != null && !currentLine.getPassword().equals(password)) {
-      ansStatus = UN_CORRECT_ANSWER_PASSWORD;  //todo коде ответа
+      answerCode = UN_CORRECT_ANSWER_PASSWORD;
     }
-    Long longNum; //todo обработку добавить
+    Long longNum;
     try {
       longNum = Long.parseLong(num);
     } catch (Exception e) {
       longNum = null;
-      System.out.println("errof"); // todo
+      System.out.println("Не удалось получить номер из " + num);
     }
-    GsmLine gsmLine = new GsmLine(port, password, gsmStatus, imsi, operator, longNum);
-    hostLineInfo.get(host).put(lineId, gsmLine); //todo get host
-    sendAnswer(host, String.format(REG_STATUS_MSG, parseSendId(receivedData), ansStatus), port);
+    GsmLine gsmLine = new GsmLine(port, password, LineStatus.getLineStatus(gsmStatus), imsi, operator, longNum);
+    sendAnswer(host, String.format(REG_STATUS_MSG_ANSWER, parseSendId(receivedData), answerCode), port);
     if (num.trim().isEmpty() && gsmLine.getStatus() == LineStatus.LOGIN) {
       setNumber(host, lineId, imsi, password);
     }
@@ -319,7 +325,7 @@ public class GsmService {
     if (receivedData.contains("INCOMING")) {
       write(String.format(RECEIVE_CALL_MSG, matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, receivedData, "phone"), port));
     }
-    sendAnswer(host, String.format(STATE_OK_MSG, parseSendId(receivedData)), port);
+    sendAnswer(host, String.format(STATE_OK_MSG_ANSWER, parseSendId(receivedData)), port);
   }
 
   @NotNull
@@ -352,8 +358,7 @@ public class GsmService {
     }
     String msg = matcher.group("msg");
     try {
-      String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, msg, "phone")
-        .replaceAll("[+()\\-\\s*]", "");
+      long phone = clearNum(matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, msg, "phone"));
       String lineId = matcher.group("id");
       String password = matcher.group("password");
       new Thread(() -> {
@@ -366,7 +371,7 @@ public class GsmService {
       System.out.printf("В сообщении %s номер не распознан", msg); // весь лог этим засрется, но хз как еще обработать
     }
     write(String.format(RECEIVE_SMS_MSG, msg, port));
-    sendAnswer(host, String.format(RECEIVE_OK_MSG, parseSendId(receivedData)), port);
+    sendAnswer(host, String.format(RECEIVE_OK_MSG_ANSWER, parseSendId(receivedData)), port);
   }
 
   @NotNull
@@ -391,16 +396,16 @@ public class GsmService {
       System.out.println("Не поддерживаемая страна с кодом: " + countryCode);
       return;
     }
-    SimOperator simOperator = SimUssdFactory.containsCountryAndOperatorCode(country, operatorCode);
-    if (simOperator == null) {
+    SimOperator simOperator = SimOperator.getOperatorByCode(operatorCode);
+    boolean containsCountryAndOperatorCode = SimUssdFactory.containsCountryAndOperatorCode(country, simOperator);
+    if (!containsCountryAndOperatorCode) {
       System.out.printf("Не поддерживаемый оператор с кодом: %s в стране с кодом: %s%n", operatorCode, countryCode);
       return;
     }
     String ussdAnswer = sendUssd(host, lineId,
-      countryOperatorSimUssdCommand.get(country).get(simOperator).getNumInfo(), password); // todo сюда только нам инфо
+      SimUssdFactory.getAllAvailableCountryOperatorSimUssdCommand().get(country).get(simOperator).getNumInfo(), password);
     try {
-      String phone = matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, ussdAnswer, "phone")
-        .replaceAll("[+()\\-\\s]", ""); //todo дубликация реплейсов, сделать clear num string -> long
+      long phone = clearNum(matchPattern(PHONE_NUMBER_FROM_RESPONSE_PATTERN, ussdAnswer, "phone"));
       String setGsmNumAnswer = setGsmNum(host, lineId, phone, password);
       if (setGsmNumAnswer.toLowerCase().contains("ok")) {
         System.out.printf("На линии %s номер изменен на %s", lineId, phone);
@@ -408,5 +413,9 @@ public class GsmService {
     } catch (Exception e) {
       System.out.println(e.getMessage());
     }
+  }
+
+  private static long clearNum(@NotNull String phone){
+    return Long.parseLong(phone.replaceAll("[+()\\-\\s]", ""));
   }
 }

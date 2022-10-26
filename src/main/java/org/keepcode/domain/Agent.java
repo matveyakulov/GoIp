@@ -11,12 +11,11 @@ public class Agent {
 
   private final String host;
 
-  private final List<DeviceInfo> devicesInfo; // todo создать его сразу
+  private final List<DeviceInfo> devicesInfo = new ArrayList<>();
 
-  public Agent(String name, String host) { // todo notnull везде
+  public Agent(@NotNull String name, @NotNull String host) {
     this.name = name;
     this.host = host;
-    this.devicesInfo = new ArrayList<>();
   }
 
   @NotNull

@@ -19,4 +19,13 @@ public enum LineStatus {
   public String getStatus() {
     return status;
   }
+
+  @NotNull
+  public static LineStatus getLineStatus(@NotNull String status) {
+    try {
+      return LineStatus.valueOf(status);
+    } catch (Exception e){
+      return LineStatus.UNKNOWN;
+    }
+  }
 }

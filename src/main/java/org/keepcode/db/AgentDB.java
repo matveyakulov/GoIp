@@ -9,15 +9,15 @@ import java.util.List;
 
 public class AgentDB {
 
-  private static List<Agent> agents;
+  private static final List<Agent> agents = new ArrayList<>();
 
+  static {
+    Agent agent = new Agent("Mat", "192.168.2.3");
+    agent.getDeviceInfoList().add(new DeviceInfo("8MCDRM18047514", "GST1610-1.01-62-4", "GoIPx8"));
+    agents.add(agent);
+  }
   @NotNull
   private static List<Agent> getAvailableAgents() {
-    if (agents == null) {  //todo drop, add static
-      agents = new ArrayList<>();
-      Agent agent = new Agent("Mat", "192.168.2.3");
-      agent.getDeviceInfoList().add(new DeviceInfo("8MCDRM18047514", "GST1610-1.01-62-4", "GoIPx8"));
-    }
     return agents;
   }
 
